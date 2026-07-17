@@ -11,5 +11,10 @@ export const dataSourceOptions: DataSourceOptions = {
   migrations: [join(__dirname, 'migrations', '*.{ts,js}')],
 };
 
-export const dataSource = new DataSource(dataSourceOptions);
+// NOTE: export the DataSource instance ONLY as default — TypeORM's CLI
+// CommandUtils.loadDataSource() scans all module exports for DataSource
+// instances and throws "must contain only one export of DataSource
+// instance" if the same instance is reachable under two export keys
+// (e.g. both a named export and `export default`).
+const dataSource = new DataSource(dataSourceOptions);
 export default dataSource;
