@@ -60,7 +60,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. A replay game drives the identical downstream pipeline as a live game — `is_replay` switches only the source, timestamps are rebased, and pacing follows original inter-event gaps × speed factor.
   5. After a restart, `live` games rebuild their in-memory state by replaying their own `game_event` rows, and the stream reconnects using the persisted `stream_cursor` as Last-Event-ID with Seq-gap detection and self-heal from the next message.
 
-**Plans**: 2/7 plans executed
+**Plans**: 4/7 plans executed
 
 **Wave 1**
 
@@ -69,8 +69,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 02-03-PLAN.md — Persistence pipeline: source-agnostic normalizer, idempotent same-tx orIgnore insert + stream_cursor flush, per-game mutex, state-machine integration, seq-gap detection (INGST-03, INGST-04, INGST-05, STAT-01/02/03, RCVR-02)
-- [ ] 02-04-PLAN.md — Fixtures discovery + shared TxLINE auth client: Bearer+X-Api-Token 401-refresh client, snapshot client (past via startEpochDay), 1-min upsert cron (GAME-01, INGST-01)
+- [x] 02-03-PLAN.md — Persistence pipeline: source-agnostic normalizer, idempotent same-tx orIgnore insert + stream_cursor flush, per-game mutex, state-machine integration, seq-gap detection (INGST-03, INGST-04, INGST-05, STAT-01/02/03, RCVR-02)
+- [x] 02-04-PLAN.md — Fixtures discovery + shared TxLINE auth client: Bearer+X-Api-Token 401-refresh client, snapshot client (past via startEpochDay), 1-min upsert cron (GAME-01, INGST-01)
 
 **Wave 3** *(blocked on Wave 2)*
 
@@ -132,7 +132,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation & Data Layer | 4/4 | Complete    | 2026-07-17 |
-| 2. Feed Ingest, Replay & State Machine | 2/7 | In Progress|  |
+| 2. Feed Ingest, Replay & State Machine | 4/7 | In Progress|  |
 | 3. Wallet Auth & User Identity | 0/TBD | Not started | - |
 | 4. Prediction Windows, Resolution & Scoring | 0/TBD | Not started | - |
 | 5. Public API, Real-time Push & Leaderboard | 0/TBD | Not started | - |
