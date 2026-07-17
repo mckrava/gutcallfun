@@ -28,7 +28,7 @@ Requirements for the hackathon submission (feature freeze evening July 17; deplo
 
 ### TxLINE Ingest (INGST)
 
-- [ ] **INGST-01**: Backend authenticates to TxLINE using credentials from git-ignored `.env` (guest JWT + X-Api-Token; 401 → refresh JWT from same host, retry)
+- [x] **INGST-01**: Backend authenticates to TxLINE using credentials from git-ignored `.env` (guest JWT + X-Api-Token; 401 → refresh JWT from same host, retry)
 - [ ] **INGST-02**: SSE client ported from txodds-txline-api-monitor `upstream.ts` (hand-rolled fetch/ReadableStream parsing, Last-Event-ID resume, 30s idle watchdog, exponential backoff) — not rebuilt on an SSE library
 - [ ] **INGST-03**: Every stream message is persisted to append-only `game_event` (promoted columns + full raw payload jsonb) idempotently via `UNIQUE(game_id, seq)` + ON CONFLICT DO NOTHING; unknown actions/statuses are stored and ignored, never crash
 - [ ] **INGST-04**: `stream_cursor` (SSE frame id) flushed every N events in the same transaction as the event insert — never ahead of persisted events; flushed on SIGTERM
@@ -42,8 +42,8 @@ Requirements for the hackathon submission (feature freeze evening July 17; deplo
 
 ### Game State Machine (STAT)
 
-- [ ] **STAT-01**: Singleton registry holds one in-memory state machine per live game (score, clock, StatusId, possession stage, attack run) derived from `possession.ts`/`goals.ts` logic ported from the monitor repo; state self-heals from any message after a gap
-- [ ] **STAT-02**: Events for the same game are processed strictly serially (per-game mutex/queue) — no interleaved-await state corruption
+- [x] **STAT-01**: Singleton registry holds one in-memory state machine per live game (score, clock, StatusId, possession stage, attack run) derived from `possession.ts`/`goals.ts` logic ported from the monitor repo; state self-heals from any message after a gap
+- [x] **STAT-02**: Events for the same game are processed strictly serially (per-game mutex/queue) — no interleaved-await state corruption
 - [ ] **STAT-03**: Two-clock discipline enforced: match-time logic (debounce, run segmentation) uses event `Ts` deltas; user-time logic (`expires_at`, answer lock) uses server wall clock
 
 ### Prediction Windows (WNDW)
@@ -128,7 +128,7 @@ Which phases cover which requirements. Populated during roadmap creation (2026-0
 | DATA-03 | Phase 1 | Complete |
 | DATA-04 | Phase 1 | Complete |
 | GAME-01 | Phase 2 | Pending |
-| INGST-01 | Phase 2 | Pending |
+| INGST-01 | Phase 2 | Complete |
 | INGST-02 | Phase 2 | Pending |
 | INGST-03 | Phase 2 | Pending |
 | INGST-04 | Phase 2 | Pending |
@@ -136,8 +136,8 @@ Which phases cover which requirements. Populated during roadmap creation (2026-0
 | RPLY-01 | Phase 2 | Pending |
 | RPLY-02 | Phase 2 | Pending |
 | RPLY-03 | Phase 2 | Pending |
-| STAT-01 | Phase 2 | Pending |
-| STAT-02 | Phase 2 | Pending |
+| STAT-01 | Phase 2 | Complete |
+| STAT-02 | Phase 2 | Complete |
 | STAT-03 | Phase 2 | Pending |
 | RCVR-01 | Phase 2 | Pending |
 | RCVR-02 | Phase 2 | Pending |
