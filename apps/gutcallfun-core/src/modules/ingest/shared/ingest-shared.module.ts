@@ -1,7 +1,16 @@
 import { Global, Module } from '@nestjs/common';
+import { GameMutexRegistry } from '../state/game-mutex.registry';
+import { GameStateRegistry } from '../state/game-state.registry';
+import { GameStreamGapEmitter } from '../events/game-stream-gap.emitter';
+import { GameStreamGapLogListener } from '../events/game-stream-gap.listener';
 
-// Providers/exports filled in by Task 3: GameMutexRegistry, GameStateRegistry,
-// GameStreamGapEmitter (exported) + GameStreamGapLogListener (provider only).
+// @Global — every ingest sub-module can inject these three shared
+// singletons (GameMutexRegistry, GameStateRegistry, GameStreamGapEmitter)
+// without re-importing this module. GameStreamGapLogListener is a provider
+// only (not exported) — it subscribes itself to the emitter on init.
 @Global()
-@Module({})
+@Module({
+  providers: [GameMutexRegistry, GameStateRegistry, GameStreamGapEmitter, GameStreamGapLogListener],
+  exports: [GameMutexRegistry, GameStateRegistry, GameStreamGapEmitter],
+})
 export class IngestSharedModule {}
