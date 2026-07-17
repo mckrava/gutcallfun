@@ -184,3 +184,7 @@ None for this plan's deliverables — the config schema and DI scaffold are comp
 ---
 *Phase: 02-feed-ingest-replay-state-machine*
 *Completed: 2026-07-17*
+
+## Self-Check: PASSED
+
+All 17 created/modified deliverable files verified present on disk; all 4 commits (`ec1f445`, `1d92b63`, `dcd530c`, `21944fa`) verified in git log.
