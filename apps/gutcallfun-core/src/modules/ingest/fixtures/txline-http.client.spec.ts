@@ -92,4 +92,28 @@ describe('TxlineHttpClient (INGST-01)', () => {
     const url = client.buildFixtureUrl('/api/scores/historical/{fixtureId}', 42);
     expect(url).toBe('https://txline.txodds.com/api/scores/historical/42');
   });
+
+  it('Test 5: getCredentials returns the current in-memory jwt/apiToken', () => {
+    const client = new TxlineHttpClient(config);
+
+    expect(client.getCredentials()).toEqual({
+      jwt: 'initial-guest-jwt',
+      apiToken: 'stable-api-token',
+    });
+  });
+
+  it('Test 6: refreshAuth updates the credentials returned by getCredentials afterwards', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { token: 'refreshed-guest-jwt' }));
+    const client = new TxlineHttpClient(config);
+
+    await client.refreshAuth();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [refreshUrl] = fetchMock.mock.calls[0];
+    expect(String(refreshUrl)).toContain('/auth/guest/start');
+    expect(client.getCredentials()).toEqual({
+      jwt: 'refreshed-guest-jwt',
+      apiToken: 'stable-api-token',
+    });
+  });
 });

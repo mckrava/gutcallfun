@@ -56,6 +56,27 @@ export class TxlineHttpClient {
     return this.doRequest<T>(path, init, false);
   }
 
+  // Current in-memory credentials (INGST-01). Reused by the SSE stream
+  // client (Plan 05), which needs the raw jwt/apiToken values to build its
+  // own long-lived streaming fetch() call — request()/doRequest() cannot be
+  // reused there because it always awaits response.json(), which would
+  // buffer the SSE body forever instead of exposing a ReadableStream.
+  // Never logs the returned values (INGST-01 security requirement).
+  getCredentials(): { jwt: string; apiToken: string } {
+    return { jwt: this.guestJwt, apiToken: this.apiToken };
+  }
+
+  // Public one-time re-auth entry point for long-lived stream consumers
+  // (Plan 05's StreamManagerService) that observe an AUTH_EXPIRED signal
+  // outside the request()/doRequest() 401 path. Delegates to the exact same
+  // refresh logic doRequest() itself uses — a single source of truth for
+  // the guest-JWT refresh call, never duplicated. Callers are responsible
+  // for their own "never retry a second time" discipline (INGST-01 401
+  // retry-storm guard) — this method itself performs no looping.
+  async refreshAuth(): Promise<void> {
+    await this.refreshGuestJwt();
+  }
+
   private async doRequest<T>(path: string, init: RequestInit, isRetry: boolean): Promise<T> {
     const url = path.startsWith('http') ? path : `${TXLINE_ORIGIN}${path}`;
     const response = await fetch(url, {
