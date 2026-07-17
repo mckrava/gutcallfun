@@ -119,17 +119,56 @@ Explicitly excluded. Documented to prevent scope creep.
 
 ## Traceability
 
-Which phases cover which requirements. Updated during roadmap creation.
+Which phases cover which requirements. Populated during roadmap creation (2026-07-17).
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (populated by roadmap) | | |
+| DATA-01 | Phase 1 | Pending |
+| DATA-02 | Phase 1 | Pending |
+| DATA-03 | Phase 1 | Pending |
+| DATA-04 | Phase 1 | Pending |
+| GAME-01 | Phase 2 | Pending |
+| INGST-01 | Phase 2 | Pending |
+| INGST-02 | Phase 2 | Pending |
+| INGST-03 | Phase 2 | Pending |
+| INGST-04 | Phase 2 | Pending |
+| INGST-05 | Phase 2 | Pending |
+| RPLY-01 | Phase 2 | Pending |
+| RPLY-02 | Phase 2 | Pending |
+| RPLY-03 | Phase 2 | Pending |
+| STAT-01 | Phase 2 | Pending |
+| STAT-02 | Phase 2 | Pending |
+| STAT-03 | Phase 2 | Pending |
+| RCVR-01 | Phase 2 | Pending |
+| RCVR-02 | Phase 2 | Pending |
+| AUTH-01 | Phase 3 | Pending |
+| AUTH-02 | Phase 3 | Pending |
+| AUTH-03 | Phase 3 | Pending |
+| WNDW-01 | Phase 4 | Pending |
+| WNDW-02 | Phase 4 | Pending |
+| WNDW-03 | Phase 4 | Pending |
+| WNDW-04 | Phase 4 | Pending |
+| RESL-01 | Phase 4 | Pending |
+| RESL-02 | Phase 4 | Pending |
+| RESL-03 | Phase 4 | Pending |
+| RESL-04 | Phase 4 | Pending |
+| RESL-05 | Phase 4 | Pending |
+| ANSW-01 | Phase 4 | Pending |
+| ANSW-02 | Phase 4 | Pending |
+| GAME-02 | Phase 5 | Pending |
+| GAME-03 | Phase 5 | Pending |
+| API-01 | Phase 5 | Pending |
+| API-02 | Phase 5 | Pending |
+| WS-01 | Phase 5 | Pending |
+| WS-02 | Phase 5 | Pending |
+| WS-03 | Phase 5 | Pending |
+| LDRB-01 | Phase 5 | Pending |
 
 **Coverage:**
-- v1 requirements: 33 total
-- Mapped to phases: 0
-- Unmapped: 33 ⚠️ (roadmap pending)
+- v1 requirements: 40 total (13 categories) — note: an earlier header estimate of "33" was stale; the actual REQ-ID count is 40
+- Mapped to phases: 40
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-07-17*
-*Last updated: 2026-07-17 after initial definition*
+*Last updated: 2026-07-17 after roadmap creation (traceability populated, count corrected 33 → 40)*
