@@ -60,12 +60,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. A replay game drives the identical downstream pipeline as a live game — `is_replay` switches only the source, timestamps are rebased, and pacing follows original inter-event gaps × speed factor.
   5. After a restart, `live` games rebuild their in-memory state by replaying their own `game_event` rows, and the stream reconnects using the persisted `stream_cursor` as Last-Event-ID with Seq-gap detection and self-heal from the next message.
 
-**Plans**: 7 plans
+**Plans**: 2/7 plans executed
 
 **Wave 1**
 
-- [ ] 02-01-PLAN.md — Ingest foundation: config schema (TxLINE creds, SL=12), IngestModule scaffold + sub-module stubs, shared mutex/state registries + GameStreamGapDetected seam (INGST-01, STAT-01, STAT-02)
-- [ ] 02-02-PLAN.md — Ported pure state-machine transforms: possession.ts + goals.ts (+ clock.ts two-clock) with unit tests (STAT-01, STAT-03)
+- [x] 02-01-PLAN.md — Ingest foundation: config schema (TxLINE creds, SL=12), IngestModule scaffold + sub-module stubs, shared mutex/state registries + GameStreamGapDetected seam (INGST-01, STAT-01, STAT-02)
+- [x] 02-02-PLAN.md — Ported pure state-machine transforms: possession.ts + goals.ts (+ clock.ts two-clock) with unit tests (STAT-01, STAT-03)
 
 **Wave 2** *(blocked on Wave 1)*
 
@@ -132,7 +132,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation & Data Layer | 4/4 | Complete    | 2026-07-17 |
-| 2. Feed Ingest, Replay & State Machine | 0/7 | Not started | - |
+| 2. Feed Ingest, Replay & State Machine | 2/7 | In Progress|  |
 | 3. Wallet Auth & User Identity | 0/TBD | Not started | - |
 | 4. Prediction Windows, Resolution & Scoring | 0/TBD | Not started | - |
 | 5. Public API, Real-time Push & Leaderboard | 0/TBD | Not started | - |
