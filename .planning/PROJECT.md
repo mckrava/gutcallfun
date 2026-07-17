@@ -19,7 +19,7 @@ The live loop works end-to-end and is demoable from replay: **TxLINE ingest → 
 
 ### Validated
 
-(None yet — ship to validate)
+- [x] TypeORM models + migrations matching `initial-db-structure.sql`; Postgres 16 in docker-compose; env-validated config module — Validated in Phase 1: Foundation & Data Layer (empty-diff gate against live Postgres 16, seed rows present, fail-fast config, boot + graceful shutdown verified)
 
 ### Active
 
@@ -37,7 +37,6 @@ Backend part of the LOCKED CORE scope:
 - [ ] REST API (~5 endpoints: auth/user, fixtures list, game join, answer submit, leaderboard) + Swagger
 - [ ] socket.io: full snapshot on subscribe (score, clock, StatusId, possession stage, active question), then go-forward pushes: game_event, question, resolution, void
 - [ ] Restart recovery: rebuild state by replaying own `game_event` rows; reconnect with persisted `stream_cursor` as Last-Event-ID; gap policy (void+refund open windows)
-- [ ] TypeORM models + migrations matching `initial-db-structure.sql`; Postgres 16 in docker-compose; env-validated config module
 
 ### Out of Scope
 
@@ -120,4 +119,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-17 after initialization*
+*Last updated: 2026-07-17 after Phase 1 completion (Foundation & Data Layer)*
