@@ -1,6 +1,10 @@
-import { Column, Entity, Index, PrimaryColumn } from 'typeorm';
+import { Column, Entity, PrimaryColumn, Unique } from 'typeorm';
 
+// initial-db-structure.sql creates uq_squad_invite_code as a named UNIQUE
+// table constraint (`ADD CONSTRAINT ... UNIQUE`) — use @Unique, not
+// @Index({unique:true}), so migration:generate reports an empty diff.
 @Entity('squad')
+@Unique('uq_squad_invite_code', ['inviteCode'])
 export class SquadEntity {
   @PrimaryColumn({ name: 'id', type: 'int' })
   id: number;
@@ -12,7 +16,6 @@ export class SquadEntity {
   image: string | null;
 
   @Column({ name: 'invite_code', type: 'varchar', nullable: true })
-  @Index('uq_squad_invite_code', { unique: true })
   inviteCode: string | null;
 
   @Column({ name: 'active', type: 'boolean', default: true })
