@@ -198,3 +198,14 @@ None - no external service configuration required. `apps/gutcallfun-core/.env` w
 ---
 *Phase: 01-foundation-data-layer*
 *Completed: 2026-07-17*
+
+## Self-Check: PASSED
+
+- FOUND: apps/gutcallfun-core/package.json
+- FOUND: apps/gutcallfun-core/src/db/data-source.ts
+- FOUND: apps/gutcallfun-core/src/models/account/user.entity.ts
+- FOUND: apps/gutcallfun-core/src/models/game/game-question.entity.ts
+- FOUND: .planning/phases/01-foundation-data-layer/01-04-SUMMARY.md
+- FOUND: cc45c83 (Task 1 commit)
+- FOUND: d3ea4a4 (Task 2 commit)
+- FOUND: d0f1a4b (docs/summary commit)
