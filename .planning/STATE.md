@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 01
 current_phase_name: foundation-data-layer
 status: executing
-stopped_at: Completed 01-01-PLAN.md
-last_updated: "2026-07-17T14:06:28.260Z"
+stopped_at: Completed 01-04-PLAN.md
+last_updated: "2026-07-17T15:07:16.748Z"
 last_activity: 2026-07-17
 last_activity_desc: Phase 01 execution started
 progress:
   total_phases: 1
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 4
-  completed_plans: 1
+  completed_plans: 4
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 ## Current Position
 
 Phase: 01 (foundation-data-layer) — EXECUTING
-Plan: 2 of 4
+Plan: 4 of 4
 Status: Ready to execute
 Last activity: 2026-07-17 — Phase 01 execution started
 
-Progress: [███░░░░░░░] 25%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -59,6 +59,7 @@ Progress: [███░░░░░░░] 25%
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
 | Phase 01 P01 | 50min | 3 tasks | 7 files |
+| Phase 01 P04 | 65min | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -72,6 +73,9 @@ Recent decisions affecting current work:
 - [Roadmap]: Window/resolution HTTP surface (answer submit) exposed in Phase 5; domain logic lands in Phase 4 — horizontal pipeline split, user-selected.
 - [Phase ?]: typeorm hard-pinned to 0.3.31 (confirmed via registry, never 1.x) per CLAUDE.md LOCKED stack
 - [Phase ?]: DATABASE_URL is a single required env var with no default; @IsUrl requires require_protocol:true to correctly fail-fast on protocol-less strings
+- [Phase ?]: TypeORM CLI in npm workspaces needs an explicit hoisted node_modules path (../../node_modules/typeorm/cli.js) — bare relative paths don't resolve to root-hoisted deps
+- [Phase ?]: Named DB UNIQUE constraints must be declared via @Unique(), not @Index({unique:true}) — TypeORM diffs pg_constraint-backed uniques differently from bare unique indexes
+- [Phase ?]: Every FK in initial-db-structure.sql needs a matching @ManyToOne/@JoinColumn relation (merged onto the existing raw @Column FK-id field) or migration:generate proposes dropping it
 
 ### Pending Todos
 
@@ -98,6 +102,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-17T14:06:28.253Z
-Stopped at: Completed 01-01-PLAN.md
+Last session: 2026-07-17T15:07:16.736Z
+Stopped at: Completed 01-04-PLAN.md
 Resume file: None

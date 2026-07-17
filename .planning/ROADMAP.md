@@ -33,7 +33,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. The app refuses to boot when required env vars are missing or invalid, and boots cleanly with `enableShutdownHooks()` active when they are valid.
   4. One shared DataSource file drives both app bootstrap and the TypeORM CLI, with `synchronize` disabled and `typeorm` pinned to 0.3.31.
 
-**Plans**: 3/4 plans executed
+**Plans**: 4/4 plans executed
 **Wave 1**
 
 - [x] 01-01-PLAN.md — Dependencies, docker healthcheck fix, and fail-fast config validation (DATA-02, DATA-03, DATA-04)
@@ -45,7 +45,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 01-04-PLAN.md — Schema push, empty-diff gate, and boot verification (DATA-01, DATA-03, DATA-04)
+- [x] 01-04-PLAN.md — Schema push, empty-diff gate, and boot verification (DATA-01, DATA-03, DATA-04)
 
 ### Phase 2: Feed Ingest, Replay & State Machine
 
@@ -112,7 +112,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation & Data Layer | 3/4 | In Progress|  |
+| 1. Foundation & Data Layer | 4/4 | In Progress|  |
 | 2. Feed Ingest, Replay & State Machine | 0/TBD | Not started | - |
 | 3. Wallet Auth & User Identity | 0/TBD | Not started | - |
 | 4. Prediction Windows, Resolution & Scoring | 0/TBD | Not started | - |
