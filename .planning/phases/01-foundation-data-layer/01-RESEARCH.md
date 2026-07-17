@@ -400,17 +400,19 @@ Note: for the compiled prod image, run the equivalent `node` command against `di
 
 **If this table is empty:** N/A — see entries above; both are LOW-MEDIUM risk with documented fallbacks already noted inline.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Does `typeorm@0.3.31` reliably respect `synchronize: false` for `where`-clause partial indexes, or does the open bug (`#10348`) reproduce here?**
    - What we know: it's the officially documented mechanism; the bug report exists but its exact affected version range wasn't confirmed in this research pass.
    - What's unclear: whether 0.3.31 specifically is affected.
    - Recommendation: the plan should include a verification task that actually runs `migration:generate` against the freshly-migrated DB and asserts an empty diff — this is already literally DATA-01's success criterion #1, so no extra scope, just make sure the plan's verification step doesn't skip it.
+   - **— RESOLVED:** The plans adopt the recommended verification exactly. Plan `01-04-PLAN.md` Task 2 (the empty-diff gate) runs `npm run migration:generate` against the already-migrated Postgres 16 and asserts the output contains `No changes in database schema were found` — which is DATA-01 success criterion #1 and the `01-04` must-have truth. If instead a spurious diff mentioning `uq_game_fixture_live` or `uq_gq_one_open_per_game` is emitted, plan `01-04` Task 2 applies the Pitfall 1 fallback (adjust the entity `@Index` `where` text to exactly match TypeORM's emitted form, delete the spurious file, re-run until empty). So whether or not `0.3.31` reproduces the bug, the phase gate detects it and the fallback path is planned — no residual uncertainty.
 
 2. **Exact `DATABASE_URL` vs. discrete `DB_HOST`/`DB_PORT`/`DB_USER`/`DB_PASSWORD`/`DB_NAME` env var shape** — not specified by CLAUDE.md or the requirements.
    - What we know: either shape works equally well with `pg`/TypeORM; `docker-compose.yml` currently defines discrete `POSTGRES_DB`/`POSTGRES_USER`/`POSTGRES_PASSWORD` values (`gutcallfun`/`gutcallfun`/`changeme-local-only`) and exposes port `5488` on `127.0.0.1`, not the Postgres-default `5432`.
    - What's unclear: which shape the planner should standardize on for the `EnvironmentVariables` schema.
    - Recommendation: use a single `DATABASE_URL` (e.g. `postgresql://gutcallfun:changeme-local-only@127.0.0.1:5488/gutcallfun`) as the one required var — simpler validation (one `@IsUrl`) and simpler `.env`/`.env.example` — this is Claude's discretion since no CONTEXT.md locked a choice.
+   - **— RESOLVED:** The plans locked the single-`DATABASE_URL` shape. Plan `01-01-PLAN.md` Task 2 seeds `apps/gutcallfun-core/.env.example` with `DATABASE_URL=postgresql://gutcallfun:changeme-local-only@127.0.0.1:5488/gutcallfun` (plus `PORT=3000`, `NODE_ENV=development`), and Task 3's `EnvironmentVariables` schema validates `DATABASE_URL` as a single required var via `@IsUrl({ protocols: ['postgresql','postgres'], require_tld: false })`. Discrete `DB_HOST`/`DB_PORT`/`DB_USER`/`DB_PASSWORD`/`DB_NAME` vars are NOT used anywhere in the plans.
 
 ## Environment Availability
 
