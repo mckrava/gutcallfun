@@ -60,7 +60,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. A replay game drives the identical downstream pipeline as a live game — `is_replay` switches only the source, timestamps are rebased, and pacing follows original inter-event gaps × speed factor.
   5. After a restart, `live` games rebuild their in-memory state by replaying their own `game_event` rows, and the stream reconnects using the persisted `stream_cursor` as Last-Event-ID with Seq-gap detection and self-heal from the next message.
 
-**Plans**: 4/7 plans executed
+**Plans**: 6/7 plans executed
 
 **Wave 1**
 
@@ -74,8 +74,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 **Wave 3** *(blocked on Wave 2)*
 
-- [ ] 02-05-PLAN.md — SSE live ingest: ported upstream.ts + StreamManagerService (resume, watchdog, backoff, AbortController shutdown) feeding the shared pipeline (INGST-02, INGST-01, RPLY-02)
-- [ ] 02-06-PLAN.md — Replay emitter: ported replay.ts (rebasing, uncompressed pre-match pacing), Source A/B loader, is_replay-guarded auto-wipe starter, replay:create dev script (RPLY-01, RPLY-02, RPLY-03)
+- [x] 02-05-PLAN.md — SSE live ingest: ported upstream.ts + StreamManagerService (resume, watchdog, backoff, AbortController shutdown) feeding the shared pipeline (INGST-02, INGST-01, RPLY-02)
+- [x] 02-06-PLAN.md — Replay emitter: ported replay.ts (rebasing, uncompressed pre-match pacing), Source A/B loader, is_replay-guarded auto-wipe starter, replay:create dev script (RPLY-01, RPLY-02, RPLY-03)
 
 **Wave 4** *(blocked on Wave 3)*
 
@@ -132,7 +132,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation & Data Layer | 4/4 | Complete    | 2026-07-17 |
-| 2. Feed Ingest, Replay & State Machine | 4/7 | In Progress|  |
+| 2. Feed Ingest, Replay & State Machine | 6/7 | In Progress|  |
 | 3. Wallet Auth & User Identity | 0/TBD | Not started | - |
 | 4. Prediction Windows, Resolution & Scoring | 0/TBD | Not started | - |
 | 5. Public API, Real-time Push & Leaderboard | 0/TBD | Not started | - |
