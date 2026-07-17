@@ -31,3 +31,7 @@ logs/
 
 # Test / coverage
 coverage/
+
+/initial-request-src/txodds-api-snapshots/
+.claude/
+/initial-request-src/

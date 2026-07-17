@@ -1,0 +1,17 @@
+services:
+  db:
+    image: postgres:16
+    shm_size: 2gb
+    environment:
+      POSTGRES_DB: gutcallfun
+      POSTGRES_USER: gutcallfun
+      POSTGRES_PASSWORD: changeme-local-only
+    ports:
+      - "127.0.0.1:5488:5432"
+    volumes:
+      - gutcallfun-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pmmarkets -d pmmarkets"]
+      interval: 5s
+      timeout: 5s
+      retries: 10

@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "gutcallfun_local": {
+      "command": "npx",
+      "args": ["-y", "@hovecapital/read-only-postgres-mcp-server"],
+      "env": {
+        "DB_HOST": "localhost",
+        "DB_PORT": "5488",
+        "DB_DATABASE": "gutcallfun",
+        "DB_USERNAME": "gutcallfun",
+        "DB_PASSWORD": "changeme-local-only"
+      }
+    }
+  }
+}
