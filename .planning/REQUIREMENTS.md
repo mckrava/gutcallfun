@@ -10,7 +10,7 @@ Requirements for the hackathon submission (feature freeze evening July 17; deplo
 ### Foundation (DATA)
 
 - [ ] **DATA-01**: TypeORM models + migrations reproduce `initial-request-src/initial-db-structure.sql` exactly — `gen_random_uuid()` defaults, hand-named enum types (`game_status`, `question_state`, `question_type`), partial unique indexes (`uq_game_fixture_live`, `uq_gq_one_open_per_game`) as raw SQL in migrations, `game_question_outcome` seeded (fizzles/danger/shot/goal, ladder 1-4) in the same migration
-- [ ] **DATA-02**: Env-validated config module (class-validator + `plainToInstance`/`validateSync`, `@Global()` AppConfig) following the hydration-data-feeds pattern; app refuses to boot on invalid env
+- [x] **DATA-02**: Env-validated config module (class-validator + `plainToInstance`/`validateSync`, `@Global()` AppConfig) following the hydration-data-feeds pattern; app refuses to boot on invalid env
 - [ ] **DATA-03**: TypeORM wired via shared DataSource file usable by both app bootstrap and migration CLI (`tsx` for dev, compiled JS for prod); `typeorm` pinned to 0.3.31 (never `latest` — 1.x is breaking); `synchronize` disabled
 - [ ] **DATA-04**: App boots against docker-compose Postgres 16 with `enableShutdownHooks()` active; docker-compose healthcheck references correct db/user (fix stale `pmmarkets` values)
 
@@ -124,7 +124,7 @@ Which phases cover which requirements. Populated during roadmap creation (2026-0
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | DATA-01 | Phase 1 | Pending |
-| DATA-02 | Phase 1 | Pending |
+| DATA-02 | Phase 1 | Complete |
 | DATA-03 | Phase 1 | Pending |
 | DATA-04 | Phase 1 | Pending |
 | GAME-01 | Phase 2 | Pending |
@@ -165,6 +165,7 @@ Which phases cover which requirements. Populated during roadmap creation (2026-0
 | LDRB-01 | Phase 5 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 40 total (13 categories) — note: an earlier header estimate of "33" was stale; the actual REQ-ID count is 40
 - Mapped to phases: 40
 - Unmapped: 0 ✓

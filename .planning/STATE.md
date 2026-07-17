@@ -2,19 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 1
-current_phase_name: Foundation & Data Layer
+current_phase: 01
+current_phase_name: foundation-data-layer
 status: executing
-stopped_at: Roadmap and STATE created; REQUIREMENTS traceability populated. Ready to plan Phase 1.
-last_updated: "2026-07-17T12:56:03.412Z"
+stopped_at: Completed 01-01-PLAN.md
+last_updated: "2026-07-17T14:06:28.260Z"
 last_activity: 2026-07-17
-last_activity_desc: Roadmap created (5 phases, 40/40 requirements mapped)
+last_activity_desc: Phase 01 execution started
 progress:
-  total_phases: 5
+  total_phases: 1
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_plans: 4
+  completed_plans: 1
 ---
 
 # Project State
@@ -24,16 +23,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-17)
 
 **Core value:** The live loop works end-to-end and is demoable from replay: TxLINE ingest → trusted `game_event` log → state machine → prediction windows → resolution → points → WS push.
-**Current focus:** Phase 1 — Foundation & Data Layer
+**Current focus:** Phase 01 — foundation-data-layer
 
 ## Current Position
 
-Phase: 1 of 5 (Foundation & Data Layer)
-Plan: 0 of TBD in current phase
+Phase: 01 (foundation-data-layer) — EXECUTING
+Plan: 2 of 4
 Status: Ready to execute
-Last activity: 2026-07-17 — Roadmap created (5 phases, 40/40 requirements mapped)
+Last activity: 2026-07-17 — Phase 01 execution started
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [███░░░░░░░] 25%
 
 ## Performance Metrics
 
@@ -55,6 +54,11 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: —
 
 *Updated after each plan completion*
+**Per-Plan Metrics:**
+
+| Plan | Duration | Tasks | Files |
+|------|----------|-------|-------|
+| Phase 01 P01 | 50min | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -66,6 +70,8 @@ Recent decisions affecting current work:
 - [Roadmap]: 5-phase pipeline build order — foundation → ingest+replay+state machine → auth → windows+resolution → API/WS/leaderboard (matches brief's prescribed dependency chain; coarse granularity).
 - [Roadmap]: Replay emitter built inside Phase 2 as core infrastructure (testing harness + demo path), not a nice-to-have.
 - [Roadmap]: Window/resolution HTTP surface (answer submit) exposed in Phase 5; domain logic lands in Phase 4 — horizontal pipeline split, user-selected.
+- [Phase ?]: typeorm hard-pinned to 0.3.31 (confirmed via registry, never 1.x) per CLAUDE.md LOCKED stack
+- [Phase ?]: DATABASE_URL is a single required env var with no default; @IsUrl requires require_protocol:true to correctly fail-fast on protocol-less strings
 
 ### Pending Todos
 
@@ -92,6 +98,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-17
-Stopped at: Roadmap and STATE created; REQUIREMENTS traceability populated. Ready to plan Phase 1.
+Last session: 2026-07-17T14:06:28.253Z
+Stopped at: Completed 01-01-PLAN.md
 Resume file: None
