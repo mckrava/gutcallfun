@@ -96,6 +96,7 @@ None yet.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260718-3cm | fix historical replay source A: SSE text parse + pacing clamp | 2026-07-18 | 1f7f37d | [260718-3cm-fix-historical-replay-source-a-sse-text-](./quick/260718-3cm-fix-historical-replay-source-a-sse-text-/) |
+| 260718-48a | fix CR-01 fixtures cron write race and CR-02 abort signal threading | 2026-07-18 | b29eb4d | [260718-48a-fix-cr-01-fixtures-cron-write-race-and-c](./quick/260718-48a-fix-cr-01-fixtures-cron-write-race-and-c/) |
 
 ## Deferred Items
 
