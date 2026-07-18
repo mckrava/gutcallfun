@@ -95,7 +95,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. Mock payloads are deterministic — the same request returns the same body — and no endpoint requires auth (`user_id` is an explicit param), per the recorded decision that Phase 3 will change those signatures.
   5. The Phase 2 ingest pipeline is untouched and its suite still passes (148 unit + 2 e2e green).
 
-**Plans**: 1/5 plans executed
+**Plans**: 3/5 plans executed
 
 **Wave 1**
 
@@ -103,8 +103,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 02.1-02-PLAN.md — Account & squad REST surface: 11 routes over deterministic fixtures (API-01, API-02)
-- [ ] 02.1-03-PLAN.md — Game, event, question, answer & leaderboard REST surface: 14 routes, LOCKED 5/7/15/100 option ladder, seq-cursor event paging (GAME-02, GAME-03, LDRB-01, API-01, API-02)
+- [x] 02.1-02-PLAN.md — Account & squad REST surface: 11 routes over deterministic fixtures (API-01, API-02)
+- [x] 02.1-03-PLAN.md — Game, event, question, answer & leaderboard REST surface: 14 routes, LOCKED 5/7/15/100 option ladder, seq-cursor event paging (GAME-02, GAME-03, LDRB-01, API-01, API-02)
 
 **Wave 3** *(blocked on Wave 2)*
 
@@ -166,7 +166,7 @@ Phases execute in numeric order: 1 → 2 → 2.1 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Foundation & Data Layer | 4/4 | Complete    | 2026-07-17 |
 | 2. Feed Ingest, Replay & State Machine | 7/7 | Complete    | 2026-07-18 |
-| 02.1. Placeholder API Surface & Fake Realtime Contract *(INSERTED)* | 1/5 | In Progress|  |
+| 02.1. Placeholder API Surface & Fake Realtime Contract *(INSERTED)* | 3/5 | In Progress|  |
 | 3. Wallet Auth & User Identity | 0/TBD | Not started | - |
 | 4. Prediction Windows, Resolution & Scoring | 0/TBD | Not started | - |
 | 5. Public API, Real-time Push & Leaderboard | 0/TBD | Not started | - |
