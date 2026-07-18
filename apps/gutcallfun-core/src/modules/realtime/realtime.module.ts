@@ -1,24 +1,23 @@
 import { Module } from '@nestjs/common';
 import { RealtimeGateway } from './realtime.gateway';
-import { FakeCycleService } from './fake-cycle.service';
+import { LiveModule } from '../live/live.module';
 
 /**
- * Not registered anywhere yet — plan 02.1-05 owns all module registration
- * (app.module.ts/api.module.ts wiring).
+ * WebSocket transport. `FakeCycleService` (the synthetic `is_mock: true`
+ * timer) is gone — every emission now originates from the real TxLINE-driven
+ * live loop in `LiveModule`.
  *
- * `ScheduleModule` is deliberately NOT imported here. `IngestModule`
- * already calls `ScheduleModule.forRoot()`, which registers a `global: true`
- * dynamic module exporting `SchedulerRegistry` (confirmed by direct
- * inspection of `node_modules/@nestjs/schedule/dist/schedule.module.js`).
- * By the time this module is ever imported into `AppModule` (which already
- * imports `IngestModule`), `SchedulerRegistry` is application-wide
- * available without this module doing anything — registering a second
- * `ScheduleModule.forRoot()` here would create a second global module
- * instance, which is exactly the "do not register a second root instance"
- * the plan warns against.
+ * Imports `LiveModule` for `LiveStateService` (real snapshots). Pushes arrive
+ * via the @Global `LiveBroadcastEmitter` rather than a direct dependency, so
+ * `LiveModule` never has to import this module back — there is no cycle.
+ *
+ * `ScheduleModule` is still deliberately NOT imported: `IngestModule` already
+ * calls `ScheduleModule.forRoot()`, which registers a `global: true` dynamic
+ * module exporting `SchedulerRegistry`.
  */
 @Module({
-  providers: [RealtimeGateway, FakeCycleService],
+  imports: [LiveModule],
+  providers: [RealtimeGateway],
   exports: [RealtimeGateway],
 })
 export class RealtimeModule {}

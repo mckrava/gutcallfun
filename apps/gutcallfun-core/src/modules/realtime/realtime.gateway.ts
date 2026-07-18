@@ -1,3 +1,4 @@
+import { Logger, OnModuleInit } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
@@ -7,65 +8,106 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { FakeCycleService } from './fake-cycle.service';
 import { SubscribeDto } from './dto/subscribe.dto';
-import { buildSnapshot } from '../../mocks/fixtures/realtime.fixtures';
+import { LiveBroadcastEmitter } from '../live/events/live-broadcast.emitter';
+import { LiveStateService } from '../live/live-state.service';
 
 /**
- * The gateway's own CORS configuration (D-06, T-02.1-19). In NestJS 11 this
- * is fully independent of `app.enableCors()` (REST) — configuring only the
- * HTTP side silently leaves the socket.io handshake blocked while REST
- * appears to work.
+ * The gateway's own CORS configuration, independent of `app.enableCors()`
+ * (REST) — in NestJS 11, configuring only the HTTP side silently leaves the
+ * socket.io handshake blocked while REST appears to work.
  *
- * This reads `process.env.WEB_APP_ORIGIN` directly rather than injecting
- * `ConfigService` — the one deliberate, documented exception to this
- * codebase's ConfigService-only config-access rule. The `@WebSocketGateway`
- * decorator's options are evaluated at class-decoration time, before
- * Nest's DI container exists, so `ConfigService` is not injectable here. It
- * is safe because `app-config.schema.ts` validates `WEB_APP_ORIGIN`
- * fail-fast at boot, before any gateway can be instantiated or any
- * handshake can arrive. Do not treat this as licence to bypass
- * `ConfigService` anywhere else in the codebase.
+ * Set to `origin: '*'` to match `main.ts`'s REST policy for this live run: the
+ * UI is being developed against an arbitrary origin and cannot be pinned to
+ * `WEB_APP_ORIGIN`.
+ *
+ * This is not the security downgrade it looks like, because the previous value
+ * was never an access control either: `cors.origin` only sets a response
+ * *header* and installs no handshake guard, there is no `allowRequest` hook,
+ * and CORS does not apply to the WebSocket upgrade at all (it covers only
+ * socket.io's polling XHR). Any client using `transports: ['websocket']`
+ * already completed the handshake from any origin — live-verified during Phase
+ * 02.1. The real gap is the absence of a server-side origin check plus auth,
+ * tracked at `.planning/todos/pending/ws-handshake-origin-not-enforced.md`, and
+ * it must be closed before this socket serves anything user-scoped.
+ *
+ * Because `origin` is now a literal, the previous `process.env.WEB_APP_ORIGIN`
+ * read at class-decoration time (the one documented ConfigService exception) is
+ * no longer needed here at all.
  */
 @WebSocketGateway({
-  cors: { origin: process.env.WEB_APP_ORIGIN, credentials: false },
+  cors: { origin: '*', credentials: false },
 })
-export class RealtimeGateway implements OnGatewayDisconnect {
+export class RealtimeGateway implements OnGatewayDisconnect, OnModuleInit {
   @WebSocketServer() server: Server;
+
+  private readonly logger = new Logger(RealtimeGateway.name);
 
   /**
    * This gateway's own bookkeeping of which `game:*` rooms each connected
    * socket has subscribed to, keyed by socket id. Verified against the
    * installed socket.io 4.8.3 (`node_modules/socket.io/dist/socket.js`,
    * `_onclose`): the socket's internal `_cleanup()` -> `leaveAll()` call
-   * removes it from every room (and updates the adapter's room registry)
-   * BEFORE the `disconnect` event is emitted — the event NestJS's
-   * `handleDisconnect` hook is bound to. By the time `handleDisconnect`
-   * runs, `client.rooms` is already empty and cannot be used to discover
-   * which rooms the departing client belonged to, so this gateway tracks
-   * membership itself instead.
+   * removes it from every room BEFORE the `disconnect` event that NestJS's
+   * `handleDisconnect` hook is bound to. By the time `handleDisconnect` runs,
+   * `client.rooms` is already empty and cannot be used to discover which rooms
+   * the departing client belonged to.
    */
   private readonly subscribedRooms = new Map<string, Set<string>>();
 
-  constructor(private readonly fakeCycle: FakeCycleService) {}
+  constructor(
+    private readonly broadcast: LiveBroadcastEmitter,
+    private readonly liveState: LiveStateService,
+  ) {}
+
+  /**
+   * Forward every live-engine emission to its game's room.
+   *
+   * This gateway is now a dumb transport: the live engine produces
+   * already-mapped, contract-shaped payloads and this only routes them. Event
+   * names (`snapshot`, `game_event`, `question`, `resolution`, `void`) and room
+   * naming (`game:{game_id}`) are unchanged — only the data source did.
+   *
+   * There is no longer any per-room cycle to start or stop: emissions are
+   * driven by the real match feed, so a room with no subscribers simply has
+   * nobody to deliver to.
+   */
+  onModuleInit(): void {
+    this.broadcast.on((message) => {
+      try {
+        this.server
+          ?.to(`game:${message.gameId}`)
+          .emit(message.event, message.payload);
+      } catch (err) {
+        this.logger.error(
+          `Failed to broadcast ${message.event} to game:${message.gameId}`,
+          err as Error,
+        );
+      }
+    });
+  }
 
   @SubscribeMessage('subscribe')
-  handleSubscribe(
+  async handleSubscribe(
     @MessageBody() body: SubscribeDto,
     @ConnectedSocket() client: Socket,
-  ): void {
+  ): Promise<void> {
     const room = `game:${body.game_id}`;
     void client.join(room);
     this.trackRoom(client.id, room);
 
-    // Emitted synchronously, immediately after the join, so a client
-    // joining mid-cycle renders instantly (WS-01). active_question is
-    // always null here — the fake cycle has not fired a question yet.
-    client.emit('snapshot', buildSnapshot(body.game_id));
-
-    // Idempotent: a second subscriber to an already-active room never
-    // doubles the event rate (FakeCycleService's own duplicate guard).
-    this.fakeCycle.startCycleForRoom(room, body.game_id, this.server);
+    // Real current state: live score, clock, possession stage, and the
+    // currently open question when one exists (WS-01/WS-02). A client joining
+    // mid-window now sees the card everyone else is already answering, instead
+    // of the unconditional `active_question: null` the mock returned.
+    try {
+      client.emit('snapshot', await this.liveState.buildSnapshot(body.game_id));
+    } catch (err) {
+      this.logger.error(
+        `Failed to build snapshot for game ${body.game_id}`,
+        err as Error,
+      );
+    }
   }
 
   @SubscribeMessage('unsubscribe')
@@ -76,24 +118,9 @@ export class RealtimeGateway implements OnGatewayDisconnect {
     const room = `game:${body.game_id}`;
     void client.leave(room);
     this.untrackRoom(client.id, room);
-    this.stopCycleIfRoomEmpty(room);
   }
 
-  /**
-   * For each `game:*` room the departing client had subscribed to (per this
-   * gateway's own tracking — see the class-level doc comment), stop that
-   * room's cycle if the client was its last member. The adapter's room-size
-   * count already excludes the departing socket by the time this hook
-   * runs (leaveAll ran first), so a plain size check — no -1 adjustment —
-   * is the correct comparison here.
-   */
   handleDisconnect(client: Socket): void {
-    const rooms = this.subscribedRooms.get(client.id);
-    if (!rooms) return;
-
-    for (const room of rooms) {
-      this.stopCycleIfRoomEmpty(room);
-    }
     this.subscribedRooms.delete(client.id);
   }
 
@@ -105,12 +132,5 @@ export class RealtimeGateway implements OnGatewayDisconnect {
 
   private untrackRoom(clientId: string, room: string): void {
     this.subscribedRooms.get(clientId)?.delete(room);
-  }
-
-  private stopCycleIfRoomEmpty(room: string): void {
-    const size = this.server.sockets.adapter.rooms.get(room)?.size ?? 0;
-    if (size === 0) {
-      this.fakeCycle.stopCycleForRoom(room);
-    }
   }
 }
