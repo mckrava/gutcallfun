@@ -211,7 +211,31 @@ export class LiveEngineService implements OnModuleInit {
       // that GameState.possessionStage has already been advanced to the
       // current stage by the state machine before this hook runs, which is why
       // the prior stage is tracked separately in the registry.
-      if (possession.stage === 'attack' && prior !== 'attack') {
+      //
+      // ASCENDING EDGES ONLY — deliberate narrowing of WNDW-01, decided from
+      // live data during the 2026-07-18 France–England match (see below).
+      //
+      // WNDW-01 says a window opens when possession "first enters
+      // attack_possession", which reads naturally as an attack building UP out
+      // of safe play. The real feed also produces the opposite: an attack that
+      // is winding DOWN passes back through attack_possession on its way to
+      // safe. Measured over the first half: 6 `high_danger -> attack` and 3
+      // `danger -> attack` transitions — 9 windows opened on attacks that had
+      // already peaked and were fading. Those can essentially only resolve
+      // `fizzles` (their danger is behind them, not ahead), and 16 of the
+      // first 22 outcomes were indeed `fizzles`.
+      //
+      // Requiring the prior stage to be `safe` (or null, at match start) means
+      // one window per attack RUN, opened as the run begins. `prior === null`
+      // must be included or the very first attack of a match never triggers.
+      //
+      // Known trade-off: a run that peaks, drops to attack, then climbs again
+      // without passing through safe now yields one window instead of two.
+      // That is the intended reading — it is one attacking passage.
+      if (
+        possession.stage === 'attack' &&
+        (prior === null || prior === 'safe')
+      ) {
         if (
           this.registry.msSinceLastOpen(message.gameId, now) < OPEN_COOLDOWN_MS
         ) {
