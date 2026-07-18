@@ -128,6 +128,7 @@ export class QuestionWindowService {
         goalSightings: new Map(),
         resolutionEventId: null,
         resolving: false,
+        deferred: false,
       });
 
       this.resolution.scheduleResolve(gameId, opened.question.id);

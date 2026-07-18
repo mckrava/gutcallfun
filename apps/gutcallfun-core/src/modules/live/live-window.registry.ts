@@ -21,6 +21,8 @@ export interface WindowOption {
 interface GoalSighting {
   confirmed: boolean;
   discarded: boolean;
+  /** Scoring team from the feed; null when absent. Used to ignore goals by the non-attacking team. */
+  participant: number | null;
 }
 
 export interface OpenWindow {
@@ -46,8 +48,11 @@ export interface OpenWindow {
   /** `game_event` row id of the message that resolved the window, when known. */
   resolutionEventId: string | null;
 
-  /** Guards against a timer firing concurrently with an immediate goal resolve. */
+  /** Guards against two resolution paths running concurrently for one window. */
   resolving: boolean;
+
+  /** True once this window has been stamped `pending_confirmation` — stamped at most once. */
+  deferred: boolean;
 }
 
 /**
@@ -180,15 +185,25 @@ export class LiveWindowRegistry {
     window: OpenWindow,
     goalActionId: number,
     confirmed: boolean,
+    participant: number | null,
   ): void {
     const existing = window.goalSightings.get(goalActionId);
     if (existing === undefined) {
-      window.goalSightings.set(goalActionId, { confirmed, discarded: false });
+      window.goalSightings.set(goalActionId, {
+        confirmed,
+        discarded: false,
+        participant,
+      });
       return;
     }
     // Confirmed:false -> Confirmed:true is a one-way transition, and is
     // idempotent under duplicate re-delivery (Last-Event-ID resume).
     if (confirmed) existing.confirmed = true;
+    // A goal's first sighting often omits Participant; a later message for the
+    // same Id can fill it in. Never overwrite an already-known value.
+    if (existing.participant === null && participant !== null) {
+      existing.participant = participant;
+    }
   }
 
   /**
@@ -212,8 +227,44 @@ export class LiveWindowRegistry {
     for (const sighting of window.goalSightings.values()) {
       if (sighting.confirmed && !sighting.discarded) return 'goal';
     }
+    return this.currentRungExcludingGoal(window);
+  }
+
+  /**
+   * The highest rung reachable WITHOUT counting any goal. Used when deferral
+   * hits its hard cap: an unconfirmed goal must never be paid out optimistically
+   * (see the deferral block comment in QuestionResolutionService), so the window
+   * falls back to what is actually established.
+   */
+  currentRungExcludingGoal(
+    window: OpenWindow,
+  ): Extract<Rung, 'fizzles' | 'danger' | 'shot'> {
     if (window.shotActionIds.size > 0) return 'shot';
     return window.possessionRung;
+  }
+
+  /**
+   * True when this window saw a goal that has neither confirmed nor been
+   * discarded yet — the condition that defers resolution.
+   *
+   * Scoped to the attacking team: a goal by the OTHER team during this window
+   * (a fast counter-attack) is not this attack's outcome and must not hold the
+   * window open. When either participant is unknown the sighting is counted, so
+   * a missing `Participant` field degrades toward deferring rather than toward
+   * silently resolving a window whose goal was about to confirm.
+   */
+  hasPendingGoal(window: OpenWindow): boolean {
+    for (const sighting of window.goalSightings.values()) {
+      if (sighting.confirmed || sighting.discarded) continue;
+      if (
+        window.participant === null ||
+        sighting.participant === null ||
+        sighting.participant === window.participant
+      ) {
+        return true;
+      }
+    }
+    return false;
   }
 
   // ── Eviction ───────────────────────────────────────────────────────────

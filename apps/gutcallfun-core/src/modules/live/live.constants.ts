@@ -58,6 +58,26 @@ export const ANSWER_WINDOW_TTL_SECONDS = 5;
 export const RESOLVE_AFTER_MS = 12_000;
 
 /**
+ * HARD CAP on deferred resolution. If an unconfirmed goal neither confirms nor
+ * is discarded within this long from window OPEN, the window resolves anyway to
+ * its highest non-goal rung.
+ *
+ * This cap is the most safety-critical constant in the module. A window that
+ * hangs open forever holds that game's slot in `LiveWindowRegistry` (and, while
+ * `state='open'`, its row in the `uq_gq_one_open_per_game` partial index), so NO
+ * further question could ever open for that game — one stuck goal would kill the
+ * live loop for the rest of the match. Deferral must always terminate.
+ *
+ * 90s is chosen against the ~76s median goal confirm lag: long enough to catch
+ * the large majority of real confirmations, short enough that a lost incident
+ * costs one window rather than the match.
+ */
+export const GOAL_CONFIRM_GRACE_MS = 90_000;
+
+/** Re-arm interval while deferred — bounds worst-case latency after a confirm/discard lands. */
+export const GOAL_CONFIRM_POLL_MS = 5_000;
+
+/**
  * Per-game wall-clock cooldown between window opens, so a sustained attacking
  * passage cannot spam windows. Backstop only — the primary guard is the
  * one-open-window-per-game rule plus its DB partial unique index.

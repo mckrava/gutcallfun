@@ -155,7 +155,15 @@ export class LiveEngineService implements OnModuleInit {
     const goal = classifyGoalEvent(message.raw);
     if (goal !== null) {
       if (goal.action === 'goal') {
-        this.registry.recordGoalSighting(window, goal.id, goal.confirmed);
+        // Participant is carried so resolution can tell an unconfirmed goal by
+        // the ATTACKING team (defer for it) from one by the other team on a
+        // counter-attack (not this window's outcome).
+        this.registry.recordGoalSighting(
+          window,
+          goal.id,
+          goal.confirmed,
+          goal.participant,
+        );
         raised = true;
       } else if (goal.action === 'action_discarded') {
         // Retracts a goal AND/OR a shot recorded earlier in this window: the
