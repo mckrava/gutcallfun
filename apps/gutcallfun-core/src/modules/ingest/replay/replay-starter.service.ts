@@ -12,6 +12,19 @@
  * (throws, never wipes) when `is_replay=false`. Replay rows are disposable
  * by definition, so re-flipping the same row for take #2 wipes cleanly
  * instead of colliding on UNIQUE(game_id, seq) (RPLY-03).
+ *
+ * D-04 AMENDMENT (2026-07-18, quick task 260718-3cm): a real fixture's
+ * history spans days and contains a single ~4.98-day inter-event gap in
+ * the pre-match dead zone (early coverage/comment records, then the ~1h-
+ * before-kickoff connected record). Uncompressed, the replay emits two
+ * events then appears frozen — `speed` alone does not rescue it (even a
+ * 1000x multiplier leaves ~7 minutes of dead air), and D-03 timestamp
+ * rebasing does not either (it shifts every timestamp by one constant
+ * delta and therefore preserves inter-event spacing). `start()` now passes
+ * an explicit, finite `maxGapMs` to `emitReplay` — the emitter's own
+ * no-ceiling (`Infinity`) default in replay.ts is untouched; supplying a
+ * ceiling from this demo/operator caller is the path replay.ts's own
+ * module doc explicitly sanctions.
  */
 
 import { Injectable, Logger } from '@nestjs/common';
@@ -35,6 +48,23 @@ function headlessSpeedOverride(): number | undefined {
   if (raw === undefined) return undefined;
   const parsed = Number(raw);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+// Production default pacing ceiling (D-04 amendment, quick task
+// 260718-3cm) — see the class-level JSDoc above for the WHY.
+const DEFAULT_REPLAY_MAX_GAP_MS = 5000;
+
+// Mirrors headlessSpeedOverride()'s validation pattern: read
+// REPLAY_MAX_GAP_MS, coerce with Number, accept it only when finite and
+// greater than zero, otherwise fall back to the default. ALWAYS returns a
+// finite number — an absent or malformed env var must never yield
+// undefined/Infinity/NaN, since any of those would reintroduce the
+// multi-day stall this helper exists to prevent.
+function replayMaxGapMs(): number {
+  const raw = process.env.REPLAY_MAX_GAP_MS;
+  if (raw === undefined) return DEFAULT_REPLAY_MAX_GAP_MS;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_REPLAY_MAX_GAP_MS;
 }
 
 @Injectable()
@@ -82,13 +112,15 @@ export class ReplayStarterService {
     }
 
     const effectiveSpeed = speed ?? headlessSpeedOverride() ?? 1;
+    const maxGapMs = replayMaxGapMs();
     this.logger.log(
-      `Starting replay for game ${gameId} (fixture ${game.fixtureId}): ${events.length} events at speed=${effectiveSpeed}`,
+      `Starting replay for game ${gameId} (fixture ${game.fixtureId}): ${events.length} events at speed=${effectiveSpeed}, maxGapMs=${maxGapMs}`,
     );
 
     await emitReplay({
       events,
       speed: effectiveSpeed,
+      maxGapMs,
       onEvent: async (raw) => {
         // RPLY-02: the SAME entry point as live SSE ingest — no mode flag.
         await this.eventIngest.processEvent(gameId, raw);
