@@ -22,8 +22,8 @@ import { UserScoreProfileResponseDto } from './dto/user-score-profile-response.d
 import { UsersService } from './users.service';
 
 // D-02: no auth anywhere on this controller — every route is unauthenticated
-// placeholder surface backed by static fixtures. See T-02.1-11 in the phase
-// threat model for the accepted-risk rationale.
+// unauthenticated surface, now backed by real Postgres rows. See T-02.1-11
+// in the phase threat model for the accepted-risk rationale.
 @Controller('users')
 @ApiTags('users')
 export class UsersController {
@@ -31,20 +31,20 @@ export class UsersController {
 
   @Get()
   @ApiOkResponse({ type: PaginatedUsersResponseDto })
-  findAll(@Query() query: ListUsersQueryDto): PaginatedUsersResponseDto {
+  findAll(@Query() query: ListUsersQueryDto): Promise<PaginatedUsersResponseDto> {
     return this.usersService.findAll(query);
   }
 
   @Get(':user_id')
   @ApiOkResponse({ type: UserResponseDto })
   @ApiNotFoundResponse({ description: 'No user exists with the given id.' })
-  findOne(@Param('user_id', ParseUUIDPipe) userId: string): UserResponseDto {
+  findOne(@Param('user_id', ParseUUIDPipe) userId: string): Promise<UserResponseDto> {
     return this.usersService.findOne(userId);
   }
 
   @Post()
   @ApiCreatedResponse({ type: UserResponseDto })
-  create(@Body() dto: CreateUserDto): UserResponseDto {
+  create(@Body() dto: CreateUserDto): Promise<UserResponseDto> {
     return this.usersService.create(dto);
   }
 
@@ -54,7 +54,7 @@ export class UsersController {
   update(
     @Param('user_id', ParseUUIDPipe) userId: string,
     @Body() dto: UpdateUserDto,
-  ): UserResponseDto {
+  ): Promise<UserResponseDto> {
     return this.usersService.update(userId, dto);
   }
 
@@ -65,7 +65,7 @@ export class UsersController {
   })
   findScoreProfile(
     @Param('user_id', ParseUUIDPipe) userId: string,
-  ): UserScoreProfileResponseDto {
+  ): Promise<UserScoreProfileResponseDto> {
     return this.usersService.findScoreProfile(userId);
   }
 }

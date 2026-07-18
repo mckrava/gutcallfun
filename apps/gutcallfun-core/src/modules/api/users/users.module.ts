@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { UserEntity } from '../../../models/account/user.entity';
+import { UserScoreProfileEntity } from '../../../models/account/user-score-profile.entity';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 
-// Mock-backed this phase (D-01/D-05) — no TypeOrmModule.forFeature, no
-// repository injection. Not registered anywhere yet: plan 05 owns all
-// module registration so parallel plans never contend for app.module.ts.
 @Module({
+  imports: [TypeOrmModule.forFeature([UserEntity, UserScoreProfileEntity])],
   controllers: [UsersController],
   providers: [UsersService],
   exports: [UsersService],
