@@ -96,6 +96,37 @@ export const GOAL_CONFIRM_POLL_MS = 5_000;
  */
 export const OPEN_COOLDOWN_MS = 10_000;
 
+/**
+ * Feed event types that RESTART play and therefore end whatever attacking run
+ * was in progress.
+ *
+ * `classifyPossession` is action-first (02/D-01) and returns null for all of
+ * these, so they never advance the possession ladder on their own — the
+ * tracked stage would otherwise stay frozen at whatever it was when play
+ * stopped, which is typically the `high_danger` that EARNED the free kick.
+ *
+ * That interacts badly with ascending-edge triggering: the attack that follows
+ * the restart is a genuinely new passage, but it looked like a descent from
+ * high_danger and was suppressed. Measured on France–England: of 8 attacks
+ * immediately following a set piece, only 3 opened a window — the other 5 were
+ * suppressed with a stale stage behind them.
+ *
+ * Treating a restart as a return to `safe` makes the ladder reflect reality:
+ * the previous attack is over (that is WHY there is a set piece), and the next
+ * `attack_possession` is the start of a new run.
+ *
+ * Deliberately excludes `possession` (a bare marker that never advances the
+ * ladder by design, per possession.ts) and `kickoff`/`goal_kick` variants are
+ * included only where they represent a genuine restart of open play.
+ */
+export const SET_PIECE_RESTART_TYPES: ReadonlySet<string> = new Set([
+  'free_kick',
+  'corner',
+  'throw_in',
+  'goal_kick',
+  'kickoff',
+]);
+
 /** SchedulerRegistry timeout-name prefix. Namespaced so cleanup only ever sweeps this module's own timers. */
 export const RESOLVE_TIMER_PREFIX = 'live-resolve';
 

@@ -8,7 +8,11 @@ import { LiveFeedMessage } from './events/live-feed.event';
 import { LiveWindowRegistry, OpenWindow } from './live-window.registry';
 import { QuestionWindowService } from './question-window.service';
 import { toGameEventMessageDto } from './live-payload.mapper';
-import { IN_PLAY_STATUS_IDS, OPEN_COOLDOWN_MS } from './live.constants';
+import {
+  IN_PLAY_STATUS_IDS,
+  OPEN_COOLDOWN_MS,
+  SET_PIECE_RESTART_TYPES,
+} from './live.constants';
 
 /**
  * The live prediction loop's brain. Consumes every persisted feed message and
@@ -199,6 +203,15 @@ export class LiveEngineService implements OnModuleInit {
     // set — this is a membership test, not an exhaustive enum mapping.
     const statusId = message.statusId ?? message.state.currentStatusId;
     if (statusId === null || !IN_PLAY_STATUS_IDS.has(statusId)) return;
+
+    // A set piece restarts play, so the run that preceded it is over. Reset the
+    // tracked stage to `safe` — otherwise it stays frozen at the high_danger
+    // that earned the free kick, and the genuinely-new attack that follows the
+    // restart is misread as a descent and suppressed. See
+    // SET_PIECE_RESTART_TYPES for the measured impact.
+    if (SET_PIECE_RESTART_TYPES.has(message.type)) {
+      this.registry.advanceStage(message.gameId, 'safe');
+    }
 
     const possession = classifyPossession(message.raw);
     if (possession !== null) {
