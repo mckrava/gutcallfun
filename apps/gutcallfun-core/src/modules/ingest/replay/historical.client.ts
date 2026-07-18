@@ -4,6 +4,11 @@
  * X-Api-Token, 401 refresh-once/retry-once), cached in-memory ONLY per
  * process (never persisted — D-01 explicit).
  *
+ * This endpoint returns SSE-formatted text (`data: {...}` lines) despite
+ * the OpenAPI spec declaring an `application/json` array response — the
+ * client requests it in text mode (`TxlineHttpClient.requestText`) and
+ * hands the raw string to `parseHistoricalResponse` untouched.
+ *
  * Retention window is exactly 2 weeks to 6 hours in the past (RESEARCH
  * Pitfall 2) — a fixture outside that window returns an empty array here
  * (never throws past this boundary), letting ReplaySourceService fall back
@@ -48,7 +53,7 @@ export class HistoricalClient {
       // is intentionally NOT caught here, it is a caller-programming-error
       // signal distinct from a legitimate "no historical data" outcome.
       const url = this.txline.buildFixtureUrl(HISTORICAL_PATH_TEMPLATE, fixtureId);
-      raw = await this.txline.request<unknown>(url);
+      raw = await this.txline.requestText(url);
     } catch (err) {
       if (err instanceof Error && err.message.startsWith('TxlineHttpClient: fixtureId')) {
         throw err;

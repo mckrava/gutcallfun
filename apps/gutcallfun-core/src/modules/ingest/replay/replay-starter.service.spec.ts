@@ -4,6 +4,7 @@ import { GameStateMachine } from '../state/game-state.machine';
 import { ReplaySourceService } from './replay-source.service';
 import { EventIngestService } from '../persistence/event-ingest.service';
 import { GameEntity } from '../../../models/game/game.entity';
+import * as replayModule from './replay';
 
 function replayGame(overrides: Partial<GameEntity> = {}): GameEntity {
   return {
@@ -26,15 +27,14 @@ describe('ReplayStarterService.start', () => {
     const eventIngest = { processEvent: jest.fn() };
 
     const service = new ReplayStarterService(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       gameRepo as any,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       gameEventRepo as any,
       stateRegistry,
       stateMachine,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       replaySource as any,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       eventIngest as any,
     );
 
@@ -52,7 +52,8 @@ describe('ReplayStarterService.start', () => {
   }
 
   it('wipes prior game_event rows + resets denormalized state BEFORE emitting, for an is_replay=true game (D-07)', async () => {
-    const { service, gameRepo, gameEventRepo, replaySource, eventIngest } = build();
+    const { service, gameRepo, gameEventRepo, replaySource, eventIngest } =
+      build();
     gameRepo.findOne.mockResolvedValue(replayGame());
     const events = [
       { Action: 'jersey', Ts: 1, Seq: 1 },
@@ -81,7 +82,13 @@ describe('ReplayStarterService.start', () => {
   });
 
   it('resets BOTH GameStateRegistry and GameStateMachine in-memory state before emitting (take #2 correctness)', async () => {
-    const { service, gameRepo, replaySource, removeStateSpy, removeMachineSpy } = build();
+    const {
+      service,
+      gameRepo,
+      replaySource,
+      removeStateSpy,
+      removeMachineSpy,
+    } = build();
     gameRepo.findOne.mockResolvedValue(replayGame());
     replaySource.load.mockResolvedValue([{ Action: 'jersey', Ts: 1, Seq: 1 }]);
 
@@ -112,7 +119,8 @@ describe('ReplayStarterService.start', () => {
   });
 
   it('refuses to wipe or emit for an is_replay=false game (D-07 hard guard)', async () => {
-    const { service, gameRepo, gameEventRepo, replaySource, eventIngest } = build();
+    const { service, gameRepo, gameEventRepo, replaySource, eventIngest } =
+      build();
     gameRepo.findOne.mockResolvedValue(replayGame({ isReplay: false }));
 
     await expect(service.start(7, 1)).rejects.toThrow(/is_replay=false/);
@@ -141,5 +149,99 @@ describe('ReplayStarterService.start', () => {
     await service.start(7, 1);
 
     expect(eventIngest.processEvent).not.toHaveBeenCalled();
+  });
+
+  describe('pacing clamp (D-04 amendment, quick task 260718-3cm)', () => {
+    afterEach(() => {
+      delete process.env.REPLAY_MAX_GAP_MS;
+      jest.restoreAllMocks();
+    });
+
+    it('Test A: passes a finite maxGapMs to emitReplay, defaulting to 5000', async () => {
+      const { service, gameRepo, replaySource, eventIngest } = build();
+      gameRepo.findOne.mockResolvedValue(replayGame());
+      replaySource.load.mockResolvedValue([
+        { Action: 'jersey', Ts: 1, Seq: 1 },
+      ]);
+      eventIngest.processEvent.mockResolvedValue(undefined);
+
+      const emitReplaySpy = jest
+        .spyOn(replayModule, 'emitReplay')
+        .mockResolvedValue(undefined);
+
+      await service.start(7, 1);
+
+      expect(emitReplaySpy).toHaveBeenCalledTimes(1);
+      const opts = emitReplaySpy.mock.calls[0][0];
+      expect(Number.isFinite(opts.maxGapMs)).toBe(true);
+      expect(opts.maxGapMs).toBe(5000);
+    });
+
+    it('Test B: a 4.98-day inter-event gap is clamped — no single sleep exceeds 5000ms', async () => {
+      const { service, gameRepo, replaySource, eventIngest } = build();
+      gameRepo.findOne.mockResolvedValue(replayGame());
+
+      // Measured real-fixture pre-match dead zone: 430,164,128 ms gap
+      // between events #2 and #3.
+      const events = [
+        { Action: 'coverage_update', Ts: 1000, Seq: 1 },
+        { Action: 'comment', Ts: 2000, Seq: 2 },
+        { Action: 'connected', Ts: 430166128, Seq: 3 },
+      ];
+      replaySource.load.mockResolvedValue(events);
+      eventIngest.processEvent.mockResolvedValue(undefined);
+
+      const recordedSleeps: number[] = [];
+      const realEmitReplay = replayModule.emitReplay;
+      jest.spyOn(replayModule, 'emitReplay').mockImplementation((opts) =>
+        realEmitReplay({
+          ...opts,
+          sleepImpl: (ms: number) => {
+            recordedSleeps.push(ms);
+            return Promise.resolve();
+          },
+        }),
+      );
+
+      await service.start(7, 1);
+
+      expect(recordedSleeps.length).toBeGreaterThan(0);
+      expect(Math.max(...recordedSleeps)).toBeLessThanOrEqual(5000);
+    });
+
+    it('Test C: REPLAY_MAX_GAP_MS overrides the default; an invalid value falls back to 5000', async () => {
+      const { service, gameRepo, replaySource, eventIngest } = build();
+      gameRepo.findOne.mockResolvedValue(replayGame());
+      replaySource.load.mockResolvedValue([
+        { Action: 'jersey', Ts: 1, Seq: 1 },
+      ]);
+      eventIngest.processEvent.mockResolvedValue(undefined);
+
+      let emitReplaySpy = jest
+        .spyOn(replayModule, 'emitReplay')
+        .mockResolvedValue(undefined);
+
+      process.env.REPLAY_MAX_GAP_MS = '250';
+      await service.start(7, 1);
+      expect(emitReplaySpy.mock.calls[0][0].maxGapMs).toBe(250);
+
+      jest.restoreAllMocks();
+      emitReplaySpy = jest
+        .spyOn(replayModule, 'emitReplay')
+        .mockResolvedValue(undefined);
+
+      process.env.REPLAY_MAX_GAP_MS = 'not-a-number';
+      await service.start(7, 1);
+      expect(emitReplaySpy.mock.calls[0][0].maxGapMs).toBe(5000);
+
+      jest.restoreAllMocks();
+      emitReplaySpy = jest
+        .spyOn(replayModule, 'emitReplay')
+        .mockResolvedValue(undefined);
+
+      process.env.REPLAY_MAX_GAP_MS = '-10';
+      await service.start(7, 1);
+      expect(emitReplaySpy.mock.calls[0][0].maxGapMs).toBe(5000);
+    });
   });
 });
