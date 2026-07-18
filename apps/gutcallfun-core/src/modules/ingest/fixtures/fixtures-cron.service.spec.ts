@@ -31,7 +31,8 @@ describe('FixturesCronService (GAME-01)', () => {
     });
     const create = jest.fn((partial: Partial<GameEntity>) => ({ ...partial }) as GameEntity);
     const save = jest.fn(async (entity: GameEntity) => entity);
-    return { findOne, create, save } as const;
+    const update = jest.fn(async () => ({ affected: 1 }));
+    return { findOne, create, save, update } as const;
   }
 
   function buildConfig(pastFixturesCount = 20): ConfigService {
@@ -50,10 +51,71 @@ describe('FixturesCronService (GAME-01)', () => {
     await service.discoverFixtures();
 
     expect(repo.create).toHaveBeenCalledTimes(1); // only the new fixture_id=1
-    expect(repo.save).toHaveBeenCalledTimes(2); // one insert + one update
+    expect(repo.save).toHaveBeenCalledTimes(1); // the insert only
+    expect(repo.update).toHaveBeenCalledTimes(1); // the existing row, via partial update
 
     const savedFixtureIds = repo.save.mock.calls.map(([entity]) => entity.fixtureId).sort();
-    expect(savedFixtureIds).toEqual([1, 2]);
+    expect(savedFixtureIds).toEqual([1]);
+
+    const [updateCriteria] = repo.update.mock.calls[0];
+    expect(updateCriteria).toEqual({ id: 55 });
+  });
+
+  it('Test A (CR-01 regression): a re-discovered live game is never touched on status/score/cursor', async () => {
+    const existing = {
+      id: 77,
+      fixtureId: 2,
+      status: GameStatus.LIVE,
+      scoreP1: 2,
+      scoreP2: 1,
+      streamCursor: '4711',
+      currentStatusId: 2,
+    } as GameEntity;
+    const repo = buildRepoMock(new Map([[2, existing]]));
+    const fixturesClient = {
+      fetchUpcoming: jest.fn().mockResolvedValue([]),
+      fetchPast: jest.fn().mockResolvedValue([discovered({ FixtureId: 2, status: GameStatus.FINISHED })]),
+    } as unknown as TxlineFixturesClient;
+
+    const service = new FixturesCronService(fixturesClient, repo as any, buildConfig());
+    await service.discoverFixtures();
+
+    expect(repo.update).toHaveBeenCalledTimes(1);
+    const [updateCriteria, updatePayload] = repo.update.mock.calls[0];
+    expect(updateCriteria).toEqual({ id: 77 });
+
+    expect(Object.keys(updatePayload).sort()).toEqual(
+      [
+        'competition',
+        'fixtureGroupId',
+        'participant1Id',
+        'participant1IsHome',
+        'participant2Id',
+        'startsAt',
+        'team1Name',
+        'team2Name',
+      ].sort(),
+    );
+
+    expect(repo.save).not.toHaveBeenCalled();
+  });
+
+  it('Test B: the INSERT path is unchanged — a first-seen fixture still goes through create + save and carries status', async () => {
+    const repo = buildRepoMock(new Map());
+    const fixturesClient = {
+      fetchUpcoming: jest.fn().mockResolvedValue([discovered({ FixtureId: 3, status: GameStatus.SCHEDULED })]),
+      fetchPast: jest.fn().mockResolvedValue([]),
+    } as unknown as TxlineFixturesClient;
+
+    const service = new FixturesCronService(fixturesClient, repo as any, buildConfig());
+    await service.discoverFixtures();
+
+    expect(repo.create).toHaveBeenCalledTimes(1);
+    expect(repo.save).toHaveBeenCalledTimes(1);
+    expect(repo.update).not.toHaveBeenCalled();
+
+    const [createPayload] = repo.create.mock.calls[0];
+    expect(createPayload.status).toBe(GameStatus.SCHEDULED);
   });
 
   it('Test 2: applies no competition filter — every discovered fixture is upserted regardless of competition', async () => {
