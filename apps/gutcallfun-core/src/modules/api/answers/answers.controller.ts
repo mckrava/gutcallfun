@@ -22,16 +22,16 @@ export class AnswersController {
   @ApiOperation({
     summary: 'Submit an answer to an open prediction window.',
     description:
-      'PROVISIONAL (D-02): user_id is caller-supplied and unverified this phase. Phase 3 replaces it with the session; Phase 4 adds real one-answer-per-question and expiry enforcement. Nothing is persisted this phase — the response is an illustrative unresolved shape (D-05).',
+      'PROVISIONAL (D-02): user_id is caller-supplied and unverified this phase — Phase 3 replaces it with the session. The answer is persisted: the question must exist, its expires_at must still be in the future (409 otherwise), the selected option must belong to that question (400 otherwise), and one answer per (user, question) is enforced (409 otherwise). awarded_points and successful_outcome stay null until the resolver scores the window.',
   })
   @ApiCreatedResponse({ type: AnswerResponseDto })
-  create(@Body() dto: CreateAnswerDto): AnswerResponseDto {
+  create(@Body() dto: CreateAnswerDto): Promise<AnswerResponseDto> {
     return this.answersService.create(dto);
   }
 
   @Get()
   @ApiOkResponse({ type: PaginatedAnswersResponseDto })
-  findAll(@Query() query: ListAnswersQueryDto): PaginatedAnswersResponseDto {
+  findAll(@Query() query: ListAnswersQueryDto): Promise<PaginatedAnswersResponseDto> {
     return this.answersService.findAll(query);
   }
 }
