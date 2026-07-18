@@ -17,16 +17,38 @@ implementations change, shapes do not (D-05).
   in local development — see `apps/gutcallfun-core/.env.example`'s `PORT`). socket.io
   negotiates its own path (`/socket.io/`) automatically; no extra configuration is
   required client-side beyond pointing at the base URL.
-- **CORS:** the socket.io handshake only succeeds from the origin configured in the
-  backend's `WEB_APP_ORIGIN` environment variable (`http://localhost:3001` locally).
-  This is configured **separately** from the REST API's CORS policy (D-06) — the
-  gateway has its own `cors` option, and in NestJS 11 configuring only
-  `app.enableCors()` silently leaves the WebSocket handshake blocked while REST
-  continues to work. If your client gets a handshake-level CORS error while REST
-  calls succeed, this is the first thing to check.
+- **CORS:** the gateway sets `Access-Control-Allow-Origin` from the backend's
+  `WEB_APP_ORIGIN` environment variable (`http://localhost:3001` locally). This is
+  configured **separately** from the REST API's CORS policy (D-06) — the gateway has
+  its own `cors` option, and in NestJS 11 configuring only `app.enableCors()` leaves
+  the gateway without its own policy. If your client gets a handshake-level CORS
+  error on the polling transport while REST calls succeed, this is the first thing
+  to check.
+
+  > ⚠️ **Origin is NOT enforced in Phase 02.1 — do not treat this as an access
+  > control.** The `cors.origin` option only sets a response *header*; it installs no
+  > handshake guard. There is no `allowRequest` hook. CORS does not apply to the
+  > WebSocket upgrade at all — it covers only socket.io's *polling* transport (an
+  > XHR). Any client that connects with `transports: ['websocket']`, **including a
+  > browser page served from any origin**, completes the handshake and receives live
+  > data. This was live-verified during Phase 02.1 verification via both a
+  > `socket.io-client` and a raw `curl`, each presenting a foreign `Origin`.
+  >
+  > Impact is accepted for now because this phase serves only deterministic mock
+  > fixtures — no auth, no user data, no wallet state. **This becomes a real
+  > vulnerability the moment the gateway serves per-user state.** Phase 5 must add a
+  > server-side origin check before shipping anything user-scoped over this socket.
+  > Tracked at `.planning/todos/pending/ws-handshake-origin-not-enforced.md`.
+
 - **Auth:** none. Per D-02, this phase ships no authentication anywhere — any
   client can subscribe to any `game_id`'s room. This is an accepted, deliberate gap
   (T-02.1-22) that Phase 3 closes.
+
+- **Local dev port note:** the backend runs on `PORT=3000` and expects the UI at
+  `WEB_APP_ORIGIN=http://localhost:3001`. `apps/gutcallfun-ui`'s `dev` script is a bare
+  `next dev`, which defaults to port **3000** — the backend's port. Start the UI with
+  `next dev -p 3001` (or start the backend first so Next.js auto-increments onto 3001),
+  otherwise the UI ends up on an origin the backend does not advertise.
 
 ## Client → Server Events
 
