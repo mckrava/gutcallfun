@@ -8,12 +8,12 @@ updated: 2026-07-18T08:05:00Z
 
 ## Current Test
 
-number: 4
-name: Boot-recovery RCVR-01 vs RCVR-02 state equivalence
+number: —
+name: all actionable items resolved
 expected: |
-  Rebuilding a game state from persisted game_event rows and from the same messages
-  driven through the resumed path produce identical GameState objects.
-awaiting: side-by-side equivalence test (only remaining pending item)
+  3 PASS with live evidence, 1 PASS via added divergence-guard test,
+  1 BLOCKED on external feed availability (no live fixtures exist yet).
+awaiting: none
 
 ## Tests
 
@@ -104,7 +104,32 @@ create. Marked `blocked` on external feed availability rather than `pending`.
 ### 4. Boot-recovery RCVR-01 vs RCVR-02 state equivalence (PLAN 02-07 backstop)
 expected: Rebuilding a game's state from persisted `game_event` rows via `GameStateMachine.applyEvent()` (RCVR-01) and rebuilding the same game's state by replaying the same messages through a live/resumed connection (RCVR-02) produce identical GameState objects (score, possession stage, attackRun, lastSeq, connectionId).
 why_human: PLAN 02-07 marks this `verification: backstop` — both paths call the SAME `GameStateMachine.applyEvent()`, a strong structural equivalence argument, but no test exercises both paths side-by-side on one event sequence and diffs the result.
-result: [pending]
+result: PASS (2026-07-18) — side-by-side equivalence test added
+
+**Evidence:** `apps/gutcallfun-core/src/modules/ingest/recovery/rcvr-equivalence.spec.ts`
+(3 tests) now exercises both paths on ONE fixed sequence of realistic PascalCase TxLINE
+messages (status changes, full possession ladder safe→attack→danger→high_danger, a shot, an
+unconfirmed→confirmed goal, a clock_adjustment; monotonic `Ts`/`Seq`) and diffs the results:
+
+- **Path A (RCVR-01)** mirrors `GameStateRebuildService.rebuildOne()` — rows sorted `seq ASC`,
+  `applyEvent(state, row.payload)`. The rows are deliberately fed in **shuffled** order so the
+  test also proves the service's `order: { seq: 'ASC' }` guarantee is what produces correctness.
+- **Path B (RCVR-02)** mirrors the resumed-stream path — same messages in arrival order.
+- Asserts `toEqual` on the whole GameState **plus** explicit per-field assertions on every
+  field the UAT names (score1/score2, possessionStage, attackRunActive/attackRunHighWaterStage,
+  lastSeq, connectionId) so a future field addition cannot silently weaken it to a vacuous pass.
+- A third test guards against vacuity (two identically-empty states trivially matching) by
+  asserting state genuinely advanced: score 0–1 derived from the confirmed goal,
+  `currentStatusId=4`, `lastSeq=21`, `connectionId='901'`, `lastFeedTs` set.
+
+Each path uses a **separate** `GameStateMachine` instance — the machine keeps per-game
+attack/goal stores keyed by `gameId`, so a shared instance would let path A's stores
+contaminate path B and mask a real difference. Separate instances also truthfully model two
+distinct process boots.
+
+The test is explicitly documented as a **divergence guard**: equivalence holds by construction
+today (one shared `applyEvent`), and the test exists to fail loudly if anyone later makes one
+path preprocess, filter, or reorder differently.
 
 ### 5. Manual-DB-flip demo control surface, end-to-end (D-06 demo choreography)
 expected: `UPDATE` a past-game row to `is_replay=true, status='scheduled', starts_at=now()+~3min`; the ~15s SourceSchedulerService poll picks it up and a full replay plays through to a visible finished game (with downstream answers/points/leaderboard once later phases land).
@@ -137,9 +162,9 @@ this run also de-risks the next phase. Note the game correctly remains `status='
 ## Summary
 
 total: 5
-passed: 3
+passed: 4
 issues: 0
-pending: 1
+pending: 0
 skipped: 0
 blocked: 1
 
