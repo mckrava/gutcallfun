@@ -81,7 +81,8 @@ Recent decisions affecting current work:
 
 [From .planning/todos/pending/ — ideas captured during sessions]
 
-None yet.
+- **game-finalised-current-status-id** (resolves in Phase 4 / RESL-05) — `game_finalised` (status_id 100) leaves `game.current_status_id` stale at 5; RESL-05 specifies `status → finished` but is silent on the denormalized column. Decide deliberately (terminal sentinel vs last real period vs separate `finalised_at`).
+- **replay-restart-orphans-mid-flight-game** (no owning phase yet) — restarting the app mid-replay strands the game at `status=live` with no source: boot recovery deliberately skips `is_replay` resume (D-02), and the scheduler only picks `scheduled`. Live/SSE games resume correctly (RCVR-02 unaffected). Workaround: re-arm to `scheduled` (restarts from scratch via D-07 wipe).
 
 ### Blockers/Concerns
 
