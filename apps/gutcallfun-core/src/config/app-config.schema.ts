@@ -1,9 +1,21 @@
 import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
-import { IsInt, IsOptional, IsString, IsUrl, Max, Min, validateSync } from 'class-validator';
+import {
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUrl,
+  Max,
+  Min,
+  validateSync,
+} from 'class-validator';
 
 export class EnvironmentVariables {
-  @IsUrl({ protocols: ['postgresql', 'postgres'], require_tld: false, require_protocol: true })
+  @IsUrl({
+    protocols: ['postgresql', 'postgres'],
+    require_tld: false,
+    require_protocol: true,
+  })
   DATABASE_URL: string;
 
   @IsOptional()
@@ -32,9 +44,26 @@ export class EnvironmentVariables {
 
   @IsUrl({ require_tld: false, require_protocol: true })
   WEB_APP_ORIGIN: string;
+
+  /**
+   * OPTIONAL fallback: when set to a positive integer, a prediction window is
+   * opened for a live game if none has opened in that many milliseconds, even
+   * without a clean attack_possession trigger.
+   *
+   * Deliberately OPTIONAL with no default — leaving it unset disables the
+   * fallback entirely. It must never become a required boot variable: this app
+   * hard-fails on missing required env, and one such trap (WEB_APP_ORIGIN) is
+   * already enough.
+   */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  LIVE_QUESTION_FALLBACK_TIMER_MS?: number;
 }
 
-export function validate(config: Record<string, unknown>): EnvironmentVariables {
+export function validate(
+  config: Record<string, unknown>,
+): EnvironmentVariables {
   const validated = plainToInstance(EnvironmentVariables, config, {
     enableImplicitConversion: true,
   });
