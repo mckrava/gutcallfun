@@ -30,6 +30,15 @@ describe('TxlineHttpClient (INGST-01)', () => {
     } as unknown as Response;
   }
 
+  function textResponse(status: number, body: string): Response {
+    return {
+      ok: status >= 200 && status < 300,
+      status,
+      statusText: status === 401 ? 'Unauthorized' : 'OK',
+      text: async () => body,
+    } as unknown as Response;
+  }
+
   it('Test 1: attaches Authorization Bearer and X-Api-Token headers on every request', async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { ok: true }));
     const client = new TxlineHttpClient(config);
@@ -115,5 +124,41 @@ describe('TxlineHttpClient (INGST-01)', () => {
       jwt: 'refreshed-guest-jwt',
       apiToken: 'stable-api-token',
     });
+  });
+
+  it('Test 7: requestText resolves to the raw response body string, no JSON parsing attempted', async () => {
+    const sseBody =
+      'data: {"FixtureId":18241006,"Action":"safe_possession","Ts":1783281625878,"Seq":23}\n\n' +
+      'data: {"FixtureId":18241006,"Action":"comment","Ts":1783281625999,"Seq":24}\n\n';
+    fetchMock.mockResolvedValueOnce(textResponse(200, sseBody));
+
+    const client = new TxlineHttpClient(config);
+    const result = await client.requestText('/api/scores/historical/18241006');
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(typeof result).toBe('string');
+    expect(result).toBe(sseBody);
+  });
+
+  it('Test 8: a single 401 in text mode still refreshes+retries exactly once, threading parse through the retry', async () => {
+    const sseBody = 'data: {"FixtureId":18241006,"Action":"safe_possession","Ts":1783281625878,"Seq":23}\n';
+    fetchMock
+      .mockResolvedValueOnce(textResponse(401, 'Unauthorized')) // original text request
+      .mockResolvedValueOnce(jsonResponse(200, { token: 'refreshed-guest-jwt' })) // refresh (json)
+      .mockResolvedValueOnce(textResponse(200, sseBody)); // retried text request
+
+    const client = new TxlineHttpClient(config);
+    const result = await client.requestText('/api/scores/historical/18241006');
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(typeof result).toBe('string');
+    expect(result).toBe(sseBody);
+
+    const [refreshUrl] = fetchMock.mock.calls[1];
+    expect(String(refreshUrl)).toContain('/auth/guest/start');
+
+    const [, retryInit] = fetchMock.mock.calls[2];
+    const retryHeaders = retryInit.headers as Record<string, string>;
+    expect(retryHeaders.Authorization).toBe('Bearer refreshed-guest-jwt');
   });
 });
