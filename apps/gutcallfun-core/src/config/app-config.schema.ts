@@ -29,6 +29,9 @@ export class EnvironmentVariables {
 
   @IsInt()
   SERVICE_LEVEL_ID: number;
+
+  @IsUrl({ require_tld: false, require_protocol: true })
+  WEB_APP_ORIGIN: string;
 }
 
 export function validate(config: Record<string, unknown>): EnvironmentVariables {
