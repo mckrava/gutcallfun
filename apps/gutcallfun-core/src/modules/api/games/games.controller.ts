@@ -33,7 +33,7 @@ export class GamesController {
 
   @Get()
   @ApiOkResponse({ type: PaginatedGamesResponseDto })
-  findAll(@Query() query: ListGamesQueryDto): PaginatedGamesResponseDto {
+  findAll(@Query() query: ListGamesQueryDto): Promise<PaginatedGamesResponseDto> {
     return this.gamesService.findAll(query);
   }
 
@@ -42,7 +42,7 @@ export class GamesController {
   @ApiNotFoundResponse({
     description: 'No game exists with the given game_id.',
   })
-  findOne(@Param('game_id', ParseIntPipe) gameId: number): GameResponseDto {
+  findOne(@Param('game_id', ParseIntPipe) gameId: number): Promise<GameResponseDto> {
     return this.gamesService.findOne(gameId);
   }
 
@@ -54,7 +54,7 @@ export class GamesController {
   findEvents(
     @Param('game_id', ParseIntPipe) gameId: number,
     @Query() query: ListGameEventsQueryDto,
-  ): GameEventPageDto {
+  ): Promise<GameEventPageDto> {
     return this.gamesService.findEvents(gameId, query);
   }
 
@@ -66,7 +66,7 @@ export class GamesController {
   findQuestions(
     @Param('game_id', ParseIntPipe) gameId: number,
     @Query() query: ListQuestionsQueryDto,
-  ): QuestionResponseDto[] {
+  ): Promise<QuestionResponseDto[]> {
     return this.gamesService.findQuestions(gameId, query);
   }
 
@@ -78,7 +78,7 @@ export class GamesController {
   join(
     @Param('game_id', ParseIntPipe) gameId: number,
     @Body() dto: JoinGameDto,
-  ): UserGameResponseDto {
+  ): Promise<UserGameResponseDto> {
     return this.gamesService.join(gameId, dto);
   }
 }

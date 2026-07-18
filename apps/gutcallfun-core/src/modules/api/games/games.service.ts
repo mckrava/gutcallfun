@@ -1,10 +1,11 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { In, Repository } from 'typeorm';
+import { GameEntity } from '../../../models/game/game.entity';
+import { GameQuestionEntity } from '../../../models/game/game-question.entity';
+import { GameQuestionOptionEntity } from '../../../models/game/game-question-option.entity';
+import { UserGameEntity } from '../../../models/game/user-game.entity';
 import { GAME_EVENTS_FIXTURE } from '../../../mocks/fixtures/game-events.fixtures';
-import { GAME_QUESTIONS_FIXTURE } from '../../../mocks/fixtures/game-questions.fixtures';
-import {
-  GAMES_FIXTURE,
-  USER_GAMES_FIXTURE,
-} from '../../../mocks/fixtures/games.fixtures';
 import { GameEventPageDto } from './dto/game-event-page.dto';
 import {
   GameResponseDto,
@@ -14,68 +15,96 @@ import { JoinGameDto } from './dto/join-game.dto';
 import { ListGameEventsQueryDto } from './dto/list-game-events-query.dto';
 import { ListGamesQueryDto } from './dto/list-games-query.dto';
 import { ListQuestionsQueryDto } from './dto/list-questions-query.dto';
+import { QuestionOptionResponseDto } from './dto/question-option-response.dto';
 import { QuestionResponseDto } from './dto/question-response.dto';
 import { UserGameResponseDto } from './dto/user-game-response.dto';
 
-/**
- * Fixture-backed this phase (D-01/D-05) — no repository injection, no
- * TypeORM import. Phase 5 rewrites the method bodies to query Postgres; the
- * controller/routes/DTOs stay identical.
- */
+function pgErrorOf(err: unknown): { code?: string; constraint?: string } {
+  const e = err as
+    | {
+        code?: string;
+        constraint?: string;
+        driverError?: { code?: string; constraint?: string };
+      }
+    | null
+    | undefined;
+  return {
+    code: e?.driverError?.code ?? e?.code,
+    constraint: e?.driverError?.constraint ?? e?.constraint,
+  };
+}
+
+const isUniqueViolation = (err: unknown): boolean => pgErrorOf(err).code === '23505';
+const isForeignKeyViolation = (err: unknown): boolean => pgErrorOf(err).code === '23503';
+
+/** timestamptz columns arrive as Date from pg; the wire contract is an ISO string. */
+const toIso = (value: Date | string | null | undefined): string | null =>
+  value == null ? null : new Date(value).toISOString();
+
 @Injectable()
 export class GamesService {
   private readonly logger = new Logger(GamesService.name);
 
-  findAll(query: ListGamesQueryDto): PaginatedGamesResponseDto {
-    let games = [...GAMES_FIXTURE];
+  constructor(
+    @InjectRepository(GameEntity)
+    private readonly gamesRepo: Repository<GameEntity>,
+    @InjectRepository(UserGameEntity)
+    private readonly userGamesRepo: Repository<UserGameEntity>,
+    @InjectRepository(GameQuestionEntity)
+    private readonly questionsRepo: Repository<GameQuestionEntity>,
+    @InjectRepository(GameQuestionOptionEntity)
+    private readonly optionsRepo: Repository<GameQuestionOptionEntity>,
+  ) {}
 
-    if (query.status) {
-      games = games.filter((game) => game.status === query.status);
-    }
-
-    if (query.user_id) {
-      const joinedGameIds = new Set(
-        USER_GAMES_FIXTURE.filter((ug) => ug.user_id === query.user_id).map(
-          (ug) => ug.game_id,
-        ),
-      );
-      games = games.filter((game) => joinedGameIds.has(game.id));
-    }
-
-    // Stable comparator: starts_at ascending, then id ascending (D-04 — two
-    // consecutive identical requests must return byte-identical bodies).
-    games.sort((a, b) => {
-      const aTime = a.starts_at ? Date.parse(a.starts_at) : 0;
-      const bTime = b.starts_at ? Date.parse(b.starts_at) : 0;
-      if (aTime !== bTime) return aTime - bTime;
-      return a.id - b.id;
-    });
-
-    const total = games.length;
-    // Defensive defaults: the global ValidationPipe (transform: true)
-    // applies the class defaults for real requests, but unit tests call
-    // this service directly with plain objects (e.g. `findAll({})`), which
-    // bypass class instantiation — so `limit`/`offset` must be defaulted
-    // here too, not only via the DTO's field initializers.
+  async findAll(query: ListGamesQueryDto): Promise<PaginatedGamesResponseDto> {
     const limit = query.limit ?? 20;
     const offset = query.offset ?? 0;
-    const items = games.slice(offset, offset + limit);
 
-    return { items, total, limit, offset };
-  }
+    const qb = this.gamesRepo.createQueryBuilder('g');
 
-  findOne(gameId: number): GameResponseDto {
-    const game = GAMES_FIXTURE.find((g) => g.id === gameId);
-    if (!game) {
-      throw new NotFoundException(`Game ${gameId} not found`);
+    if (query.status) {
+      // Explicit cast: `status` is the game_status enum, and an untyped bind
+      // parameter would leave PG to infer the comparison operand type.
+      qb.andWhere('g.status = CAST(:status AS game_status)', { status: query.status });
     }
-    return game;
+    if (query.user_id) {
+      qb.andWhere(
+        'EXISTS (SELECT 1 FROM user_game ug WHERE ug.game_id = g.id AND ug.user_id = :userId)',
+        { userId: query.user_id },
+      );
+    }
+
+    // starts_at ascending then id ascending, matching the previous ordering
+    // contract. NULLS FIRST keeps unscheduled games where they used to sort.
+    qb.orderBy('g.startsAt', 'ASC', 'NULLS FIRST')
+      .addOrderBy('g.id', 'ASC')
+      .skip(offset)
+      .take(limit);
+
+    const [rows, total] = await qb.getManyAndCount();
+
+    return {
+      items: rows.map((row) => this.toGameDto(row)),
+      total,
+      limit,
+      offset,
+    };
   }
 
-  findEvents(gameId: number, query: ListGameEventsQueryDto): GameEventPageDto {
-    // Resolve the game first — a non-existent game_id is a 404, not an
-    // empty page (API-02: structured, meaningful errors).
-    this.findOne(gameId);
+  async findOne(gameId: number): Promise<GameResponseDto> {
+    return this.toGameDto(await this.findGameOrThrow(gameId));
+  }
+
+  /**
+   * Still fixture-backed: the game_event read model is owned by the ingest /
+   * live pipeline, not this plan. A game with no matching fixture rows yields
+   * an empty page, never a 404.
+   */
+  async findEvents(
+    gameId: number,
+    query: ListGameEventsQueryDto,
+  ): Promise<GameEventPageDto> {
+    await this.findGameOrThrow(gameId);
 
     const afterSeq = query.after_seq ?? 0;
     const limit = query.limit ?? 20;
@@ -85,9 +114,6 @@ export class GamesService {
     const eligible = allEventsForGame.filter((event) => event.seq > afterSeq);
     const items = eligible.slice(0, limit);
 
-    // An after_seq beyond the highest seq in the log is the normal "caught
-    // up" state a polling client hits constantly — HTTP 200, empty items,
-    // next_seq null. Never a 404.
     const reachedEndOfLog = items.length === eligible.length;
     const lastItem = items[items.length - 1];
     const next_seq = reachedEndOfLog ? null : (lastItem?.seq ?? null);
@@ -95,44 +121,152 @@ export class GamesService {
     return { items, next_seq };
   }
 
-  findQuestions(
+  async findQuestions(
     gameId: number,
     query: ListQuestionsQueryDto,
-  ): QuestionResponseDto[] {
-    this.findOne(gameId);
+  ): Promise<QuestionResponseDto[]> {
+    await this.findGameOrThrow(gameId);
 
-    let questions = GAME_QUESTIONS_FIXTURE.filter(
-      (question) => question.game_id === gameId,
-    );
+    const qb = this.questionsRepo
+      .createQueryBuilder('q')
+      .where('q.gameId = :gameId', { gameId });
+
     if (query.state) {
-      questions = questions.filter(
-        (question) => question.state === query.state,
-      );
+      qb.andWhere('q.state = CAST(:state AS question_state)', { state: query.state });
+    }
+
+    const questions = await qb
+      .orderBy('q.createdAt', 'ASC')
+      .addOrderBy('q.id', 'ASC')
+      .getMany();
+
+    if (questions.length === 0) return [];
+
+    // GameQuestionEntity declares no OneToMany to its options (the relation is
+    // only modelled from the option side) and src/models is off-limits, so the
+    // options are fetched in one batched second query and grouped in memory
+    // rather than via leftJoinAndSelect.
+    const options = await this.optionsRepo.find({
+      where: { gameQuestionId: In(questions.map((q) => q.id)) },
+      order: { displayOrder: 'ASC' },
+    });
+
+    const optionsByQuestion = new Map<string, QuestionOptionResponseDto[]>();
+    for (const option of options) {
+      const bucket = optionsByQuestion.get(option.gameQuestionId) ?? [];
+      bucket.push(this.toOptionDto(option));
+      optionsByQuestion.set(option.gameQuestionId, bucket);
     }
 
     return questions.map((question) => ({
-      ...question,
-      options: [...question.options].sort(
-        (a, b) => a.display_order - b.display_order,
-      ),
+      id: question.id,
+      game_id: question.gameId,
+      trigger_event_id: question.triggerEventId ?? null,
+      resolution_event_id: question.resolutionEventId ?? null,
+      question_type: question.questionType,
+      content: question.content,
+      participant: question.participant ?? null,
+      state: question.state,
+      resolved_option_id: question.resolvedOptionId ?? null,
+      answer_window_ttl: question.answerWindowTtl,
+      expires_at: toIso(question.expiresAt) as string,
+      created_at: toIso(question.createdAt) as string,
+      resolved_at: toIso(question.resolvedAt),
+      options: optionsByQuestion.get(question.id) ?? [],
     }));
   }
 
-  // Nothing is persisted this phase (D-05); the shape is the deliverable.
-  // GAME-03's join-twice question (idempotent 200 vs 409 vs upsert) is
-  // explicitly UNRESOLVED and deferred to Phase 5 — see PLAN.md
-  // flagged_assumptions. This mock returns the shape unconditionally.
-  join(gameId: number, dto: JoinGameDto): UserGameResponseDto {
-    this.findOne(gameId);
-    this.logger.debug(
-      `Mock join: user ${dto.user_id} -> game ${gameId} (nothing persisted, D-05)`,
-    );
+  /**
+   * Idempotent by design: joining a game twice returns the existing
+   * user_game row instead of erroring, so the demo UI can call join on every
+   * page load without special-casing.
+   */
+  async join(gameId: number, dto: JoinGameDto): Promise<UserGameResponseDto> {
+    await this.findGameOrThrow(gameId);
 
+    const existing = await this.userGamesRepo.findOne({
+      where: { gameId, userId: dto.user_id },
+    });
+    if (existing) {
+      return this.toUserGameDto(existing);
+    }
+
+    try {
+      await this.userGamesRepo.insert({
+        gameId,
+        userId: dto.user_id,
+        squadId: dto.squad_id ?? null,
+      });
+    } catch (err) {
+      if (isForeignKeyViolation(err)) {
+        // The only caller-supplied FK is user_id — game_id was validated above.
+        throw new NotFoundException(`User ${dto.user_id} not found`);
+      }
+      if (!isUniqueViolation(err)) throw err;
+      // Lost a race with a concurrent join; fall through and re-read.
+    }
+
+    const row = await this.userGamesRepo.findOne({
+      where: { gameId, userId: dto.user_id },
+    });
+    if (!row) {
+      throw new NotFoundException(
+        `Join for user ${dto.user_id} on game ${gameId} could not be read back`,
+      );
+    }
+    return this.toUserGameDto(row);
+  }
+
+  private async findGameOrThrow(gameId: number): Promise<GameEntity> {
+    const game = await this.gamesRepo.findOne({ where: { id: gameId } });
+    if (!game) {
+      throw new NotFoundException(`Game ${gameId} not found`);
+    }
+    return game;
+  }
+
+  private toGameDto(game: GameEntity): GameResponseDto {
     return {
-      game_id: gameId,
-      user_id: dto.user_id,
-      squad_id: dto.squad_id ?? null,
-      joined_at: '2026-07-18T16:00:00.000Z',
+      id: game.id,
+      fixture_id: game.fixtureId,
+      status: game.status,
+      starts_at: toIso(game.startsAt),
+      participant1_id: game.participant1Id ?? null,
+      participant2_id: game.participant2Id ?? null,
+      participant1_is_home: game.participant1IsHome,
+      team1_name: game.team1Name ?? null,
+      team2_name: game.team2Name ?? null,
+      competition: game.competition ?? null,
+      fixture_group_id: game.fixtureGroupId ?? null,
+      team1_jersey_color: game.team1JerseyColor ?? null,
+      team2_jersey_color: game.team2JerseyColor ?? null,
+      current_status_id: game.currentStatusId ?? null,
+      score_p1: game.scoreP1,
+      score_p2: game.scoreP2,
+      is_replay: game.isReplay,
+      created_at: toIso(game.createdAt) as string,
+      updated_at: toIso(game.updatedAt),
+    };
+  }
+
+  private toOptionDto(option: GameQuestionOptionEntity): QuestionOptionResponseDto {
+    return {
+      id: option.id,
+      game_question_id: option.gameQuestionId,
+      outcome_key: option.outcomeKey,
+      // base_gain is read straight off the row — the 5/7/15/100 ladder is
+      // frozen per question instance and is never recomputed here.
+      base_gain: option.baseGain,
+      display_order: option.displayOrder,
+    };
+  }
+
+  private toUserGameDto(userGame: UserGameEntity): UserGameResponseDto {
+    return {
+      game_id: userGame.gameId,
+      user_id: userGame.userId,
+      squad_id: userGame.squadId ?? null,
+      joined_at: toIso(userGame.joinedAt) as string,
     };
   }
 }

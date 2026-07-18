@@ -1,12 +1,21 @@
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { GameEntity } from '../../../models/game/game.entity';
+import { GameQuestionEntity } from '../../../models/game/game-question.entity';
+import { GameQuestionOptionEntity } from '../../../models/game/game-question-option.entity';
+import { UserGameEntity } from '../../../models/game/user-game.entity';
 import { GamesController } from './games.controller';
 import { GamesService } from './games.service';
 
-// Fixture-backed this phase (D-01/D-05) — no TypeOrmModule.forFeature, no
-// repository injection. Not registered anywhere: plan 05 owns all module
-// registration (app.module.ts / api.module.ts) so parallel plans in this
-// wave never contend for the same file.
 @Module({
+  imports: [
+    TypeOrmModule.forFeature([
+      GameEntity,
+      UserGameEntity,
+      GameQuestionEntity,
+      GameQuestionOptionEntity,
+    ]),
+  ],
   controllers: [GamesController],
   providers: [GamesService],
   exports: [GamesService],
