@@ -170,6 +170,13 @@ Which phases cover which requirements. Populated during roadmap creation (2026-0
 - Mapped to phases: 40
 - Unmapped: 0 ✓
 
+**Status note (Phase 02.1):** GAME-02, GAME-03, LDRB-01, API-01, API-02, WS-01, WS-02 and WS-03
+above remain `Pending` against Phase 5 by design. Phase 02.1 (placeholder API surface & fake
+realtime contract) delivered a contract-frozen mock of every route and WS event these IDs
+describe — reachable, Swagger-documented, deterministic — but with zero real persistence, zero
+real window/resolution logic, and zero real WS wiring behind any of it. Phase 5 owns turning
+this interface into working behaviour; only then do these eight IDs move to `Complete`.
+
 ---
 *Requirements defined: 2026-07-17*
 *Last updated: 2026-07-17 after roadmap creation (traceability populated, count corrected 33 → 40)*
