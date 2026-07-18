@@ -81,8 +81,20 @@ export const GOAL_CONFIRM_POLL_MS = 5_000;
  * Per-game wall-clock cooldown between window opens, so a sustained attacking
  * passage cannot spam windows. Backstop only — the primary guard is the
  * one-open-window-per-game rule plus its DB partial unique index.
+ *
+ * NO RECORDED DECISION BACKS THIS VALUE. The brief calls an inter-window
+ * cooldown "a one-line config knob — decide by feel" and never fixes a number,
+ * so this is a tuning parameter, not a locked constant. Do not conflate it with
+ * WNDW-03's 12s attack-run debounce, which is a window-CLOSE rule measured in
+ * event `Ts` deltas — this one is wall clock and governs window OPENS.
+ *
+ * Tuned 20s -> 10s live during the 2026-07-18 France–England match. Measured at
+ * 20s: 28 attack edges produced 22 windows (6 suppressed), roughly one question
+ * per 45-50s. Lowered to raise density in busy passages. Note the real ceiling
+ * on frequency is often not this value but the one-open-window rule — a window
+ * deferred awaiting a goal confirm held the guard for 87s in that same match.
  */
-export const OPEN_COOLDOWN_MS = 20_000;
+export const OPEN_COOLDOWN_MS = 10_000;
 
 /** SchedulerRegistry timeout-name prefix. Namespaced so cleanup only ever sweeps this module's own timers. */
 export const RESOLVE_TIMER_PREFIX = 'live-resolve';
