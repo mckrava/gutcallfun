@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 3
-current_phase_name: Wallet Auth & User Identity
-status: planning
-stopped_at: Phase 2 context gathered
-last_updated: "2026-07-18T08:15:47.732Z"
+current_phase: 02.1
+current_phase_name: Placeholder API Surface & Fake Realtime Contract
+status: planned
+stopped_at: Phase 02.1 planned — 5 plans, 4 waves, plan-checker passed
+last_updated: "2026-07-18T13:24:44.557Z"
 last_activity: 2026-07-18
-last_activity_desc: Phase 02 complete, transitioned to Phase 3
+last_activity_desc: Phase 02.1 inserted after Phase 2 to unblock UI developer integration
 progress:
-  total_phases: 2
+  total_phases: 3
   completed_phases: 2
   total_plans: 11
   completed_plans: 11
@@ -23,14 +23,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-17)
 
 **Core value:** The live loop works end-to-end and is demoable from replay: TxLINE ingest → trusted `game_event` log → state machine → prediction windows → resolution → points → WS push.
-**Current focus:** Phase 02 — Feed Ingest, Replay & State Machine
+**Current focus:** Phase 02.1 — Placeholder API Surface & Fake Realtime Contract (INSERTED, urgent)
 
 ## Current Position
 
-Phase: 3 — Wallet Auth & User Identity
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-07-18 — Phase 02 complete, transitioned to Phase 3
+Phase: 02.1 — Placeholder API Surface & Fake Realtime Contract (INSERTED)
+Plan: 5 plans across 4 waves (0/5 executed)
+Status: Planned — ready to execute
+Last activity: 2026-07-18 — Phase 02.1 planned; plan-checker returned VERIFICATION PASSED on iteration 1
 
 Progress: [██████████] 100%
 
@@ -99,6 +99,10 @@ Recent decisions affecting current work:
 |---|-------------|------|--------|-----------|
 | 260718-3cm | fix historical replay source A: SSE text parse + pacing clamp | 2026-07-18 | 1f7f37d | [260718-3cm-fix-historical-replay-source-a-sse-text-](./quick/260718-3cm-fix-historical-replay-source-a-sse-text-/) |
 | 260718-48a | fix CR-01 fixtures cron write race and CR-02 abort signal threading | 2026-07-18 | b29eb4d | [260718-48a-fix-cr-01-fixtures-cron-write-race-and-c](./quick/260718-48a-fix-cr-01-fixtures-cron-write-race-and-c/) |
+
+### Roadmap Evolution
+
+- Phase 02.1 inserted after Phase 2: Placeholder API Surface & Fake Realtime Contract — reprioritized to unblock UI developer integration ahead of Phases 3-5 (URGENT)
 
 ## Deferred Items
 
