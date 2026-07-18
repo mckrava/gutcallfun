@@ -4,6 +4,7 @@ import { GameMutexRegistry } from '../state/game-mutex.registry';
 import { GameStateRegistry } from '../state/game-state.registry';
 import { GameStateMachine } from '../state/game-state.machine';
 import { GameStreamGapEmitter } from '../events/game-stream-gap.emitter';
+import { LiveFeedEmitter } from '../../live/events/live-feed.emitter';
 
 /**
  * Chainable QueryBuilder mock recording every method call in `calls`, so a
@@ -74,6 +75,8 @@ describe('EventIngestService.processEvent', () => {
     const stateMachine = new GameStateMachine();
     const gapEmitter = new GameStreamGapEmitter();
     const emitSpy = jest.spyOn(gapEmitter, 'emit');
+    const liveFeedEmitter = new LiveFeedEmitter();
+    const liveEmitSpy = jest.spyOn(liveFeedEmitter, 'emit');
 
     const service = new EventIngestService(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -83,9 +86,20 @@ describe('EventIngestService.processEvent', () => {
       stateRegistry,
       stateMachine,
       gapEmitter,
+      liveFeedEmitter,
     );
 
-    return { service, dataSource, mutexRegistry, runExclusiveSpy, stateRegistry, gapEmitter, emitSpy };
+    return {
+      service,
+      dataSource,
+      mutexRegistry,
+      runExclusiveSpy,
+      stateRegistry,
+      gapEmitter,
+      emitSpy,
+      liveFeedEmitter,
+      liveEmitSpy,
+    };
   }
 
   it('runs the whole body inside GameMutexRegistry.runExclusive (STAT-02)', async () => {
