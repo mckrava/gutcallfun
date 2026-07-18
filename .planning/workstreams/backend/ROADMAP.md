@@ -95,7 +95,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. Mock payloads are deterministic — the same request returns the same body — and no endpoint requires auth (`user_id` is an explicit param), per the recorded decision that Phase 3 will change those signatures.
   5. The Phase 2 ingest pipeline is untouched and its suite still passes (148 unit + 2 e2e green).
 
-**Plans**: 4/5 plans executed
+**Plans**: 5/5 plans executed
 
 **Wave 1**
 
@@ -112,7 +112,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 **Wave 4** *(blocked on Wave 3)*
 
-- [ ] 02.1-05-PLAN.md — Module wiring, REST/WS/OpenAPI e2e specs, zero-regression verification (all 8 requirement IDs — interface only, they stay Pending against Phase 5)
+- [x] 02.1-05-PLAN.md — Module wiring, REST/WS/OpenAPI e2e specs, zero-regression verification (all 8 requirement IDs — interface only, they stay Pending against Phase 5)
 
 ### Phase 3: Wallet Auth & User Identity
 
@@ -166,7 +166,7 @@ Phases execute in numeric order: 1 → 2 → 2.1 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Foundation & Data Layer | 4/4 | Complete    | 2026-07-17 |
 | 2. Feed Ingest, Replay & State Machine | 7/7 | Complete    | 2026-07-18 |
-| 02.1. Placeholder API Surface & Fake Realtime Contract *(INSERTED)* | 4/5 | In Progress|  |
+| 02.1. Placeholder API Surface & Fake Realtime Contract *(INSERTED)* | 5/5 | In Progress|  |
 | 3. Wallet Auth & User Identity | 0/TBD | Not started | - |
 | 4. Prediction Windows, Resolution & Scoring | 0/TBD | Not started | - |
 | 5. Public API, Real-time Push & Leaderboard | 0/TBD | Not started | - |
