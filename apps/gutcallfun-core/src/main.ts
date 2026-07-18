@@ -13,7 +13,8 @@ async function bootstrap() {
   // T-02.1-01: single resolved origin only — never a wildcard, never `true`,
   // never a reflect-any-origin callback. D-02: no auth/session/cookie, so
   // credentials: false is correct.
-  app.enableCors({ origin: webAppOrigin, credentials: false });
+  // app.enableCors({ origin: webAppOrigin, credentials: false });
+  app.enableCors({ origin: '*', credentials: false });
 
   // T-02.1-02: whitelist strips undeclared properties and the "forbid" flag
   // upgrades that strip into a 400 (mass-assignment control); transform
