@@ -14,7 +14,7 @@ The journey builds the live micro-prediction loop bottom-up along the brief's pr
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation & Data Layer** - Schema-faithful migrations, validated config, and a bootable app on Postgres 16 (completed 2026-07-17)
-- [ ] **Phase 2: Feed Ingest, Replay & State Machine** - Source-agnostic TxLINE pipeline into an append-only log and an in-memory per-game state machine, with restart recovery
+- [x] **Phase 2: Feed Ingest, Replay & State Machine** - Source-agnostic TxLINE pipeline into an append-only log and an in-memory per-game state machine, with restart recovery (completed 2026-07-18)
 - [ ] **Phase 3: Wallet Auth & User Identity** - Solana wallet sign-in with nonce challenge, session JWT, and first-time user creation
 - [ ] **Phase 4: Prediction Windows, Resolution & Scoring** - Attack-triggered windows, 12s debounce, VAR-aware goal settlement, void/refund, and locked points
 - [ ] **Phase 5: Public API, Real-time Push & Leaderboard** - Documented REST endpoints, socket.io snapshot-on-join with go-forward pushes, and a live global leaderboard
@@ -132,7 +132,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation & Data Layer | 4/4 | Complete    | 2026-07-17 |
-| 2. Feed Ingest, Replay & State Machine | 7/7 | In Progress|  |
+| 2. Feed Ingest, Replay & State Machine | 7/7 | Complete    | 2026-07-18 |
 | 3. Wallet Auth & User Identity | 0/TBD | Not started | - |
 | 4. Prediction Windows, Resolution & Scoring | 0/TBD | Not started | - |
 | 5. Public API, Real-time Push & Leaderboard | 0/TBD | Not started | - |

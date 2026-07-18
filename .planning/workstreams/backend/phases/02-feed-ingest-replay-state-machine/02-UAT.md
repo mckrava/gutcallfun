@@ -1,5 +1,5 @@
 ---
-status: testing
+status: resolved
 phase: 02-feed-ingest-replay-state-machine
 source: [02-VERIFICATION.md]
 started: 2026-07-17T22:10:11Z

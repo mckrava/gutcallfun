@@ -1,7 +1,17 @@
 ---
 phase: 02-feed-ingest-replay-state-machine
 verified: 2026-07-17T22:06:50Z
-status: human_needed
+status: passed
+uat_resolution: |
+  2026-07-18 — all 5 human_verification items resolved via 02-UAT.md:
+  #1 timestamptz round-trip PASS (0ms drift, live Postgres);
+  #2 blocked-socket abort PASS (24ms exit on a real established TxLINE SSE socket);
+  #4 RCVR-01/RCVR-02 equivalence PASS (divergence-guard test added);
+  #5 manual-DB-flip demo PASS (964 real events, full match, score derived);
+  #3 BLOCKED on external feed availability — TxLINE currently has no live/upcoming
+  fixtures (D-09), so real in-play match events cannot be received until kickoff.
+  Connection/auth half of #3 verified against the real origin.
+
 score: 4/4 roadmap success criteria verified; 14/14 requirement IDs traceable and tested
 behavior_unverified: 0
 overrides_applied: 0
