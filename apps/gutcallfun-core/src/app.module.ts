@@ -8,7 +8,13 @@ import { ApiModule } from './modules/api/api.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
 
 @Module({
-  imports: [AppConfigModule, DatabaseModule, IngestModule, ApiModule, RealtimeModule],
+  imports: [
+    AppConfigModule,
+    DatabaseModule,
+    IngestModule,
+    ApiModule,
+    RealtimeModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
