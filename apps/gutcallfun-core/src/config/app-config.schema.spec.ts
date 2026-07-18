@@ -7,6 +7,7 @@ const VALID_ENV = {
   TXLINE_GUEST_JWT: 'guest-jwt-value',
   TXLINE_API_TOKEN: 'api-token-value',
   SERVICE_LEVEL_ID: '12',
+  WEB_APP_ORIGIN: 'http://localhost:3001',
 };
 
 describe('validate (fail-fast env validation)', () => {
@@ -88,5 +89,23 @@ describe('validate (fail-fast env validation)', () => {
     const second = validate({ ...VALID_ENV });
 
     expect(second).toEqual(first);
+  });
+
+  // Source: PLAN.md 02.1-01 Task 2 acceptance criteria — WEB_APP_ORIGIN (D-06) fail-fast
+  // contract: no default, no @IsOptional(), same fail-fast group as DATABASE_URL/
+  // TXLINE_GUEST_JWT/TXLINE_API_TOKEN.
+  it('Test 12: throws when WEB_APP_ORIGIN is absent', () => {
+    const { WEB_APP_ORIGIN, ...rest } = VALID_ENV;
+    void WEB_APP_ORIGIN;
+    expect(() => validate(rest)).toThrow();
+  });
+
+  it('Test 13: throws when WEB_APP_ORIGIN is a protocol-less string', () => {
+    expect(() => validate({ ...VALID_ENV, WEB_APP_ORIGIN: 'localhost:3001' })).toThrow();
+  });
+
+  it('Test 14: returns successfully for a protocol-qualified WEB_APP_ORIGIN', () => {
+    const result = validate({ ...VALID_ENV, WEB_APP_ORIGIN: 'http://localhost:3001' });
+    expect(result.WEB_APP_ORIGIN).toBe('http://localhost:3001');
   });
 });
