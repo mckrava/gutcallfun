@@ -35,7 +35,7 @@ describe('TxlineHttpClient (INGST-01)', () => {
       ok: status >= 200 && status < 300,
       status,
       statusText: status === 401 ? 'Unauthorized' : 'OK',
-      text: async () => body,
+      text: () => Promise.resolve(body),
     } as unknown as Response;
   }
 
@@ -55,11 +55,15 @@ describe('TxlineHttpClient (INGST-01)', () => {
   it('Test 2: a single 401 triggers exactly one refresh + one retry, then succeeds', async () => {
     fetchMock
       .mockResolvedValueOnce(jsonResponse(401, 'Unauthorized')) // original request
-      .mockResolvedValueOnce(jsonResponse(200, { token: 'refreshed-guest-jwt' })) // refresh
+      .mockResolvedValueOnce(
+        jsonResponse(200, { token: 'refreshed-guest-jwt' }),
+      ) // refresh
       .mockResolvedValueOnce(jsonResponse(200, { ok: true })); // retried request
 
     const client = new TxlineHttpClient(config);
-    const result = await client.request<{ ok: boolean }>('/api/fixtures/snapshot');
+    const result = await client.request<{ ok: boolean }>(
+      '/api/fixtures/snapshot',
+    );
 
     expect(result).toEqual({ ok: true });
     expect(fetchMock).toHaveBeenCalledTimes(3);
@@ -75,14 +79,16 @@ describe('TxlineHttpClient (INGST-01)', () => {
   it('Test 3: a repeated 401 after refresh surfaces an error without a third request attempt', async () => {
     fetchMock
       .mockResolvedValueOnce(jsonResponse(401, 'Unauthorized')) // original request
-      .mockResolvedValueOnce(jsonResponse(200, { token: 'refreshed-guest-jwt' })) // refresh
+      .mockResolvedValueOnce(
+        jsonResponse(200, { token: 'refreshed-guest-jwt' }),
+      ) // refresh
       .mockResolvedValueOnce(jsonResponse(401, 'Unauthorized')); // retried request, still dead
 
     const client = new TxlineHttpClient(config);
 
-    await expect(client.request('/api/fixtures/snapshot')).rejects.toBeInstanceOf(
-      TxlineAuthExpiredError,
-    );
+    await expect(
+      client.request('/api/fixtures/snapshot'),
+    ).rejects.toBeInstanceOf(TxlineAuthExpiredError);
     // original + refresh + one retry = 3 total fetch calls; no second refresh/retry loop.
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
@@ -90,15 +96,24 @@ describe('TxlineHttpClient (INGST-01)', () => {
   it('Test 4: buildFixtureUrl rejects 0/negative/non-integer fixtureId before any fetch call', () => {
     const client = new TxlineHttpClient(config);
 
-    expect(() => client.buildFixtureUrl('/api/scores/historical/{fixtureId}', 0)).toThrow();
-    expect(() => client.buildFixtureUrl('/api/scores/historical/{fixtureId}', -5)).toThrow();
-    expect(() => client.buildFixtureUrl('/api/scores/historical/{fixtureId}', 1.5)).toThrow();
+    expect(() =>
+      client.buildFixtureUrl('/api/scores/historical/{fixtureId}', 0),
+    ).toThrow();
+    expect(() =>
+      client.buildFixtureUrl('/api/scores/historical/{fixtureId}', -5),
+    ).toThrow();
+    expect(() =>
+      client.buildFixtureUrl('/api/scores/historical/{fixtureId}', 1.5),
+    ).toThrow();
     expect(() =>
       client.buildFixtureUrl('/api/scores/historical/{fixtureId}', Number.NaN),
     ).toThrow();
     expect(fetchMock).not.toHaveBeenCalled();
 
-    const url = client.buildFixtureUrl('/api/scores/historical/{fixtureId}', 42);
+    const url = client.buildFixtureUrl(
+      '/api/scores/historical/{fixtureId}',
+      42,
+    );
     expect(url).toBe('https://txline.txodds.com/api/scores/historical/42');
   });
 
@@ -112,7 +127,9 @@ describe('TxlineHttpClient (INGST-01)', () => {
   });
 
   it('Test 6: refreshAuth updates the credentials returned by getCredentials afterwards', async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse(200, { token: 'refreshed-guest-jwt' }));
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, { token: 'refreshed-guest-jwt' }),
+    );
     const client = new TxlineHttpClient(config);
 
     await client.refreshAuth();
@@ -141,10 +158,13 @@ describe('TxlineHttpClient (INGST-01)', () => {
   });
 
   it('Test 8: a single 401 in text mode still refreshes+retries exactly once, threading parse through the retry', async () => {
-    const sseBody = 'data: {"FixtureId":18241006,"Action":"safe_possession","Ts":1783281625878,"Seq":23}\n';
+    const sseBody =
+      'data: {"FixtureId":18241006,"Action":"safe_possession","Ts":1783281625878,"Seq":23}\n';
     fetchMock
       .mockResolvedValueOnce(textResponse(401, 'Unauthorized')) // original text request
-      .mockResolvedValueOnce(jsonResponse(200, { token: 'refreshed-guest-jwt' })) // refresh (json)
+      .mockResolvedValueOnce(
+        jsonResponse(200, { token: 'refreshed-guest-jwt' }),
+      ) // refresh (json)
       .mockResolvedValueOnce(textResponse(200, sseBody)); // retried text request
 
     const client = new TxlineHttpClient(config);
@@ -154,10 +174,10 @@ describe('TxlineHttpClient (INGST-01)', () => {
     expect(typeof result).toBe('string');
     expect(result).toBe(sseBody);
 
-    const [refreshUrl] = fetchMock.mock.calls[1];
+    const [refreshUrl] = fetchMock.mock.calls[1] as [string];
     expect(String(refreshUrl)).toContain('/auth/guest/start');
 
-    const [, retryInit] = fetchMock.mock.calls[2];
+    const [, retryInit] = fetchMock.mock.calls[2] as [string, RequestInit];
     const retryHeaders = retryInit.headers as Record<string, string>;
     expect(retryHeaders.Authorization).toBe('Bearer refreshed-guest-jwt');
   });

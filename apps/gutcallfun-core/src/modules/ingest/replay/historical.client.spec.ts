@@ -9,7 +9,12 @@ import { HistoricalClient } from './historical.client';
 // implementation (positive-integer validation + https://txline.txodds.com
 // prefixing) so Test 5 exercises the actual guard, with requestText
 // swapped for a jest.fn() double.
-function buildTxlineDouble() {
+interface TxlineDouble {
+  buildFixtureUrl: TxlineHttpClient['buildFixtureUrl'];
+  requestText: jest.Mock<Promise<string>, [string]>;
+}
+
+function buildTxlineDouble(): TxlineDouble {
   const config = {
     get: (key: string) => {
       const values: Record<string, string> = {
@@ -22,8 +27,9 @@ function buildTxlineDouble() {
   const real = new TxlineHttpClient(config);
 
   return {
-    buildFixtureUrl: real.buildFixtureUrl.bind(real),
-    requestText: jest.fn(),
+    buildFixtureUrl: (pathTemplate: string, fixtureId: number) =>
+      real.buildFixtureUrl(pathTemplate, fixtureId),
+    requestText: jest.fn<Promise<string>, [string]>(),
   };
 }
 
@@ -38,8 +44,7 @@ describe('HistoricalClient.fetch', () => {
   it('Test 1: parses a realistic SSE body into N event objects preserving PascalCase keys', async () => {
     const txline = buildTxlineDouble();
     txline.requestText.mockResolvedValue(SSE_BODY);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const client = new HistoricalClient(txline as any);
+    const client = new HistoricalClient(txline as unknown as TxlineHttpClient);
 
     const events = await client.fetch(18241006);
 
@@ -67,8 +72,7 @@ describe('HistoricalClient.fetch', () => {
   it('Test 2: calls requestText with the fully-built absolute historical URL for the fixture id', async () => {
     const txline = buildTxlineDouble();
     txline.requestText.mockResolvedValue(SSE_BODY);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const client = new HistoricalClient(txline as any);
+    const client = new HistoricalClient(txline as unknown as TxlineHttpClient);
 
     await client.fetch(18241006);
 
@@ -80,8 +84,7 @@ describe('HistoricalClient.fetch', () => {
   it('Test 3: caches the parsed result — a second fetch(sameFixtureId) does not call requestText again', async () => {
     const txline = buildTxlineDouble();
     txline.requestText.mockResolvedValue(SSE_BODY);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const client = new HistoricalClient(txline as any);
+    const client = new HistoricalClient(txline as unknown as TxlineHttpClient);
 
     const first = await client.fetch(18241006);
     const second = await client.fetch(18241006);
@@ -93,8 +96,7 @@ describe('HistoricalClient.fetch', () => {
   it('Test 4: a rejected requestText resolves to [] rather than throwing', async () => {
     const txline = buildTxlineDouble();
     txline.requestText.mockRejectedValue(new Error('network error'));
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const client = new HistoricalClient(txline as any);
+    const client = new HistoricalClient(txline as unknown as TxlineHttpClient);
 
     const events = await client.fetch(18241006);
 
@@ -103,8 +105,7 @@ describe('HistoricalClient.fetch', () => {
 
   it('Test 5: an invalid fixture id rethrows the fixtureId guard and never reaches the network', async () => {
     const txline = buildTxlineDouble();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const client = new HistoricalClient(txline as any);
+    const client = new HistoricalClient(txline as unknown as TxlineHttpClient);
 
     await expect(client.fetch(0)).rejects.toThrow(/fixtureId/);
     await expect(client.fetch(-5)).rejects.toThrow(/fixtureId/);

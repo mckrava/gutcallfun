@@ -27,15 +27,14 @@ describe('ReplayStarterService.start', () => {
     const eventIngest = { processEvent: jest.fn() };
 
     const service = new ReplayStarterService(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       gameRepo as any,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       gameEventRepo as any,
       stateRegistry,
       stateMachine,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       replaySource as any,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       eventIngest as any,
     );
 
@@ -53,7 +52,8 @@ describe('ReplayStarterService.start', () => {
   }
 
   it('wipes prior game_event rows + resets denormalized state BEFORE emitting, for an is_replay=true game (D-07)', async () => {
-    const { service, gameRepo, gameEventRepo, replaySource, eventIngest } = build();
+    const { service, gameRepo, gameEventRepo, replaySource, eventIngest } =
+      build();
     gameRepo.findOne.mockResolvedValue(replayGame());
     const events = [
       { Action: 'jersey', Ts: 1, Seq: 1 },
@@ -82,7 +82,13 @@ describe('ReplayStarterService.start', () => {
   });
 
   it('resets BOTH GameStateRegistry and GameStateMachine in-memory state before emitting (take #2 correctness)', async () => {
-    const { service, gameRepo, replaySource, removeStateSpy, removeMachineSpy } = build();
+    const {
+      service,
+      gameRepo,
+      replaySource,
+      removeStateSpy,
+      removeMachineSpy,
+    } = build();
     gameRepo.findOne.mockResolvedValue(replayGame());
     replaySource.load.mockResolvedValue([{ Action: 'jersey', Ts: 1, Seq: 1 }]);
 
@@ -113,7 +119,8 @@ describe('ReplayStarterService.start', () => {
   });
 
   it('refuses to wipe or emit for an is_replay=false game (D-07 hard guard)', async () => {
-    const { service, gameRepo, gameEventRepo, replaySource, eventIngest } = build();
+    const { service, gameRepo, gameEventRepo, replaySource, eventIngest } =
+      build();
     gameRepo.findOne.mockResolvedValue(replayGame({ isReplay: false }));
 
     await expect(service.start(7, 1)).rejects.toThrow(/is_replay=false/);
@@ -153,7 +160,9 @@ describe('ReplayStarterService.start', () => {
     it('Test A: passes a finite maxGapMs to emitReplay, defaulting to 5000', async () => {
       const { service, gameRepo, replaySource, eventIngest } = build();
       gameRepo.findOne.mockResolvedValue(replayGame());
-      replaySource.load.mockResolvedValue([{ Action: 'jersey', Ts: 1, Seq: 1 }]);
+      replaySource.load.mockResolvedValue([
+        { Action: 'jersey', Ts: 1, Seq: 1 },
+      ]);
       eventIngest.processEvent.mockResolvedValue(undefined);
 
       const emitReplaySpy = jest
@@ -184,16 +193,15 @@ describe('ReplayStarterService.start', () => {
 
       const recordedSleeps: number[] = [];
       const realEmitReplay = replayModule.emitReplay;
-      jest
-        .spyOn(replayModule, 'emitReplay')
-        .mockImplementation(async (opts) =>
-          realEmitReplay({
-            ...opts,
-            sleepImpl: async (ms: number) => {
-              recordedSleeps.push(ms);
-            },
-          }),
-        );
+      jest.spyOn(replayModule, 'emitReplay').mockImplementation((opts) =>
+        realEmitReplay({
+          ...opts,
+          sleepImpl: (ms: number) => {
+            recordedSleeps.push(ms);
+            return Promise.resolve();
+          },
+        }),
+      );
 
       await service.start(7, 1);
 
@@ -204,7 +212,9 @@ describe('ReplayStarterService.start', () => {
     it('Test C: REPLAY_MAX_GAP_MS overrides the default; an invalid value falls back to 5000', async () => {
       const { service, gameRepo, replaySource, eventIngest } = build();
       gameRepo.findOne.mockResolvedValue(replayGame());
-      replaySource.load.mockResolvedValue([{ Action: 'jersey', Ts: 1, Seq: 1 }]);
+      replaySource.load.mockResolvedValue([
+        { Action: 'jersey', Ts: 1, Seq: 1 },
+      ]);
       eventIngest.processEvent.mockResolvedValue(undefined);
 
       let emitReplaySpy = jest
@@ -216,14 +226,18 @@ describe('ReplayStarterService.start', () => {
       expect(emitReplaySpy.mock.calls[0][0].maxGapMs).toBe(250);
 
       jest.restoreAllMocks();
-      emitReplaySpy = jest.spyOn(replayModule, 'emitReplay').mockResolvedValue(undefined);
+      emitReplaySpy = jest
+        .spyOn(replayModule, 'emitReplay')
+        .mockResolvedValue(undefined);
 
       process.env.REPLAY_MAX_GAP_MS = 'not-a-number';
       await service.start(7, 1);
       expect(emitReplaySpy.mock.calls[0][0].maxGapMs).toBe(5000);
 
       jest.restoreAllMocks();
-      emitReplaySpy = jest.spyOn(replayModule, 'emitReplay').mockResolvedValue(undefined);
+      emitReplaySpy = jest
+        .spyOn(replayModule, 'emitReplay')
+        .mockResolvedValue(undefined);
 
       process.env.REPLAY_MAX_GAP_MS = '-10';
       await service.start(7, 1);

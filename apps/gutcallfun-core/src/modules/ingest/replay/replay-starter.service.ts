@@ -64,7 +64,9 @@ function replayMaxGapMs(): number {
   const raw = process.env.REPLAY_MAX_GAP_MS;
   if (raw === undefined) return DEFAULT_REPLAY_MAX_GAP_MS;
   const parsed = Number(raw);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_REPLAY_MAX_GAP_MS;
+  return Number.isFinite(parsed) && parsed > 0
+    ? parsed
+    : DEFAULT_REPLAY_MAX_GAP_MS;
 }
 
 @Injectable()
