@@ -75,9 +75,13 @@ export class StreamManagerService implements OnApplicationShutdown {
 
   /**
    * Abort every active per-game connection (INGST-04 shutdown seam,
-   * RESEARCH Pitfall 5). A blocked `reader.read()` throws immediately once
-   * its controller aborts, so the process observes SIGTERM instead of
-   * hanging past the grace window.
+   * RESEARCH Pitfall 5). A blocked `reader.read()` is interrupted promptly
+   * once its controller aborts (CR-02 fix, 02-REVIEW.md): the per-game
+   * controller's signal is threaded into the SSE `fetch()` call itself
+   * (transport-level abort) AND an abort listener registered on the active
+   * stream reader calls `reader.cancel()`, which resolves a currently
+   * blocked `reader.read()` at once — so shutdown does not wait out the 30s
+   * idle watchdog for an actively-receiving stream.
    *
    * INGST-04 "stream_cursor flushed on SIGTERM" invariant: this method
    * performs NO separate flush write of its own. Every processEvent call
