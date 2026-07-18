@@ -91,6 +91,12 @@ None yet.
 - Phase 2 open gap: exact TxODDS auth endpoint signatures/error paths (guest JWT → on-chain subscribe → activate) — resolve during Phase 2 planning via the `txodds-api` skill.
 - Phase 4 open gap: double-resolution test harness needs clock mocking / manual trigger to fire goal-confirm and 5-min timeout simultaneously.
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260718-3cm | fix historical replay source A: SSE text parse + pacing clamp | 2026-07-18 | 1f7f37d | [260718-3cm-fix-historical-replay-source-a-sse-text-](./quick/260718-3cm-fix-historical-replay-source-a-sse-text-/) |
+
 ## Deferred Items
 
 Items acknowledged and carried forward from previous milestone close:
