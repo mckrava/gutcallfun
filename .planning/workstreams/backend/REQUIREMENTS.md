@@ -23,8 +23,8 @@ Requirements for the hackathon submission (feature freeze evening July 17; deplo
 ### Games & Fixtures (GAME)
 
 - [x] **GAME-01**: Cron job (every 1 min) discovers available fixtures from TxLINE and creates/updates `game` rows with team names, competition, fixture_group_id, starts_at (names come from fixtures endpoint — stream has numeric ids only)
-- [ ] **GAME-02**: User can list games (upcoming/live/finished) with denormalized score, status, team names — no live stream call needed to render the list
-- [ ] **GAME-03**: User can join a game (`user_game` row, optional squad_id defined at join time)
+- [x] **GAME-02**: User can list games (upcoming/live/finished) with denormalized score, status, team names — no live stream call needed to render the list
+- [x] **GAME-03**: User can join a game (`user_game` row, optional squad_id defined at join time)
 
 ### TxLINE Ingest (INGST)
 
@@ -68,18 +68,18 @@ Requirements for the hackathon submission (feature freeze evening July 17; deplo
 
 ### Leaderboard (LDRB)
 
-- [ ] **LDRB-01**: Global live leaderboard endpoint: `SUM(awarded_points)` grouped by user with handle/avatar, ordered desc; reflects resolutions promptly
+- [x] **LDRB-01**: Global live leaderboard endpoint: `SUM(awarded_points)` grouped by user with handle/avatar, ordered desc; reflects resolutions promptly
 
 ### REST API (API)
 
-- [ ] **API-01**: REST surface (~5 endpoints: auth/nonce+verify, games list, game join, answer submit, leaderboard) documented with Swagger UI
-- [ ] **API-02**: Validation via class-validator DTOs; errors return structured 4xx (invalid signature, closed window, duplicate answer) — never 500s for expected rejections
+- [x] **API-01**: REST surface (~5 endpoints: auth/nonce+verify, games list, game join, answer submit, leaderboard) documented with Swagger UI
+- [x] **API-02**: Validation via class-validator DTOs; errors return structured 4xx (invalid signature, closed window, duplicate answer) — never 500s for expected rejections
 
 ### WebSocket (WS)
 
-- [ ] **WS-01**: socket.io gateway with per-game rooms; client subscribes to a game and receives a full snapshot immediately (score, clock, StatusId, possession stage, active question if any) from in-memory state — a user joining at minute 60 renders instantly
-- [ ] **WS-02**: Go-forward pushes after snapshot: `game_event` (state/heat-map updates), `question` (new window), `resolution` (outcome + points), `void`; persist-then-broadcast ordering always
-- [ ] **WS-03**: CORS configured for the Next.js UI origin; gateway auth accepts the same JWT as REST
+- [x] **WS-01**: socket.io gateway with per-game rooms; client subscribes to a game and receives a full snapshot immediately (score, clock, StatusId, possession stage, active question if any) from in-memory state — a user joining at minute 60 renders instantly
+- [x] **WS-02**: Go-forward pushes after snapshot: `game_event` (state/heat-map updates), `question` (new window), `resolution` (outcome + points), `void`; persist-then-broadcast ordering always
+- [x] **WS-03**: CORS configured for the Next.js UI origin; gateway auth accepts the same JWT as REST
 
 ### Restart Recovery (RCVR)
 
@@ -155,14 +155,14 @@ Which phases cover which requirements. Populated during roadmap creation (2026-0
 | RESL-05 | Phase 4 | Pending |
 | ANSW-01 | Phase 4 | Pending |
 | ANSW-02 | Phase 4 | Pending |
-| GAME-02 | Phase 5 | Pending |
-| GAME-03 | Phase 5 | Pending |
-| API-01 | Phase 5 | Pending |
-| API-02 | Phase 5 | Pending |
-| WS-01 | Phase 5 | Pending |
-| WS-02 | Phase 5 | Pending |
-| WS-03 | Phase 5 | Pending |
-| LDRB-01 | Phase 5 | Pending |
+| GAME-02 | Phase 5 | Complete |
+| GAME-03 | Phase 5 | Complete |
+| API-01 | Phase 5 | Complete |
+| API-02 | Phase 5 | Complete |
+| WS-01 | Phase 5 | Complete |
+| WS-02 | Phase 5 | Complete |
+| WS-03 | Phase 5 | Complete |
+| LDRB-01 | Phase 5 | Complete |
 
 **Coverage:**
 
