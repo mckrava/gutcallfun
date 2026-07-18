@@ -7,6 +7,7 @@ import { LiveEventsModule } from './events/live-events.module';
 import { LiveEngineService } from './live-engine.service';
 import { LiveStateService } from './live-state.service';
 import { LiveWindowRegistry } from './live-window.registry';
+import { OrphanedWindowSweeper } from './orphaned-window.sweeper';
 import { QuestionResolutionService } from './question-resolution.service';
 import { QuestionWindowService } from './question-window.service';
 
@@ -43,6 +44,7 @@ import { QuestionWindowService } from './question-window.service';
     QuestionWindowService,
     LiveEngineService,
     LiveStateService,
+    OrphanedWindowSweeper,
   ],
   exports: [LiveStateService],
 })
