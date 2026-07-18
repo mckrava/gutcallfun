@@ -15,6 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation & Data Layer** - Schema-faithful migrations, validated config, and a bootable app on Postgres 16 (completed 2026-07-17)
 - [x] **Phase 2: Feed Ingest, Replay & State Machine** - Source-agnostic TxLINE pipeline into an append-only log and an in-memory per-game state machine, with restart recovery (completed 2026-07-18)
+- [ ] **Phase 02.1: Placeholder API Surface & Fake Realtime Contract** *(INSERTED)* - Full REST + socket.io contract with realistic mock payloads so the UI developer can integrate immediately, ahead of Phases 3-5
 - [ ] **Phase 3: Wallet Auth & User Identity** - Solana wallet sign-in with nonce challenge, session JWT, and first-time user creation
 - [ ] **Phase 4: Prediction Windows, Resolution & Scoring** - Attack-triggered windows, 12s debounce, VAR-aware goal settlement, void/refund, and locked points
 - [ ] **Phase 5: Public API, Real-time Push & Leaderboard** - Documented REST endpoints, socket.io snapshot-on-join with go-forward pushes, and a live global leaderboard
@@ -81,6 +82,38 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] 02-07-PLAN.md — Source scheduler + restart recovery: single is_replay source-switch scheduler (also the manual-DB-flip demo surface), boot state rebuild from own game_event rows, stream resume with gap self-heal (RCVR-01, RCVR-02, RPLY-02, RPLY-03)
 
+### Phase 02.1: Placeholder API Surface & Fake Realtime Contract (INSERTED)
+
+**Goal**: The full REST + socket.io contract the UI needs is live, documented, and stable — every endpoint returns realistically-shaped mock data and the gateway emits a looping fake game cycle — so the UI developer can build and integrate every screen now, while Phases 3-5 later swap real implementations in behind identical DTOs with zero UI rework.
+**Depends on**: Phase 1 (entities/DTO shapes); Phase 2 must not regress
+**Requirements**: GAME-02, GAME-03, LDRB-01, API-01, API-02, WS-01, WS-02, WS-03 *(contract frozen here; real implementations remain owned by Phase 5)*
+**Success Criteria** (what must be TRUE):
+
+  1. Every endpoint in the agreed surface is reachable, returns HTTP 200 with a correctly-typed DTO carrying realistic **non-empty** mock data whose field names and types match `initial-db-structure.sql`, and is documented in Swagger UI — a UI developer can build every screen without inventing a single field name.
+  2. A socket.io client subscribing to a game room receives a full `snapshot` immediately, then a `game_event` every ~4s and a repeating `question` → `resolution` cycle (~30s period, 5s answer window) — the hero screen (prediction card, countdown, points animation) is fully buildable without waiting for Phase 4.
+  3. Invalid requests return structured 4xx via class-validator DTOs, never 500s; CORS accepts the configured Next.js origin for both REST and the WS handshake.
+  4. Mock payloads are deterministic — the same request returns the same body — and no endpoint requires auth (`user_id` is an explicit param), per the recorded decision that Phase 3 will change those signatures.
+  5. The Phase 2 ingest pipeline is untouched and its suite still passes (148 unit + 2 e2e green).
+
+**Plans**: 5 plans
+
+**Wave 1**
+
+- [ ] 02.1-01-PLAN.md — Packages (behind a legitimacy checkpoint), WEB_APP_ORIGIN fail-fast config, and bootstrap wiring: ValidationPipe, CORS, Swagger (API-01, API-02, WS-03)
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 02.1-02-PLAN.md — Account & squad REST surface: 11 routes over deterministic fixtures (API-01, API-02)
+- [ ] 02.1-03-PLAN.md — Game, event, question, answer & leaderboard REST surface: 14 routes, LOCKED 5/7/15/100 option ladder, seq-cursor event paging (GAME-02, GAME-03, LDRB-01, API-01, API-02)
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 02.1-04-PLAN.md — socket.io gateway, fake game cycle with guaranteed timer teardown, snapshot match clock, WS-CONTRACT.md (WS-01, WS-02, WS-03)
+
+**Wave 4** *(blocked on Wave 3)*
+
+- [ ] 02.1-05-PLAN.md — Module wiring, REST/WS/OpenAPI e2e specs, zero-regression verification (all 8 requirement IDs — interface only, they stay Pending against Phase 5)
+
 ### Phase 3: Wallet Auth & User Identity
 
 **Goal**: A fan can sign in with a Solana wallet and receive a session that gates the rest of the API, with first-time sign-in creating their identity.
@@ -127,12 +160,13 @@ Decimal phases appear between their surrounding integers in numeric order.
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
+Phases execute in numeric order: 1 → 2 → 2.1 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation & Data Layer | 4/4 | Complete    | 2026-07-17 |
 | 2. Feed Ingest, Replay & State Machine | 7/7 | Complete    | 2026-07-18 |
+| 02.1. Placeholder API Surface & Fake Realtime Contract *(INSERTED)* | 0/5 | Planned | - |
 | 3. Wallet Auth & User Identity | 0/TBD | Not started | - |
 | 4. Prediction Windows, Resolution & Scoring | 0/TBD | Not started | - |
 | 5. Public API, Real-time Push & Leaderboard | 0/TBD | Not started | - |
