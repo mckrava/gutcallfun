@@ -27,6 +27,25 @@ expected: Killing the process (or calling `onApplicationShutdown()`) while a rea
 why_human: PLAN 02-05 marks this `verification: backstop`; 02-05-SUMMARY (D7) flags `human_judgment: true` — unit specs only prove a mocked-fetch AbortSignal propagates, weaker than an OS-level stalled read genuinely being aborted. Standard undici/fetch behavior, but not observed against a real stalled connection here.
 result: [pending]
 
+**2026-07-18 update (quick task 260718-48a, CR-02 fix):** `02-REVIEW.md`'s
+CR-02 BLOCKER finding is fixed — `connectWithRetry`/`runSingleStream` now
+thread the caller's `AbortSignal` into the actual SSE `fetch()` call
+(transport-level abort) AND register an abort listener that calls
+`reader.cancel()` to interrupt a blocked `reader.read()` promptly, instead
+of only gating the inter-reconnect `sleep()`. `stream-manager.service.ts`'s
+`onApplicationShutdown` doc comment, which previously asserted an invariant
+that was false as implemented, has been corrected to describe this actual
+two-part mechanism. New regression coverage lives in
+`apps/gutcallfun-core/src/modules/ingest/stream/upstream.spec.ts` (signal
+reaches the transport, prompt abort of a blocked read under a 60s watchdog,
+no watchdog-timer leak, no abort-listener leak, AUTH_EXPIRED still
+short-circuits) — all against the REAL `connectWithRetry`, not a mock.
+Honesty note: this automated coverage still mocks the fetch/reader layer
+(an injected `fetchImpl` and a fake `ReadableStreamDefaultReader`), so
+observing a genuinely-blocked OS-level stalled socket abort for real remains
+this item's outstanding human-verification step — `result` is intentionally
+left `[pending]`.
+
 ### 3. Live SSE ingest against the real TxLINE origin (02-05 D8)
 expected: With real TXLINE_GUEST_JWT/TXLINE_API_TOKEN in `.env`, a live game's SSE connection authenticates, receives real feed frames, and each is normalized/persisted/state-applied identically to the replay path, with no crash on real production message shapes.
 why_human: 02-05-SUMMARY (D8) designates this best-effort/non-blocking, `human_judgment: true` — all automated tests mock the fetch layer; the real feed has never been exercised end-to-end. Pipeline correctness is otherwise proven via the real-Postgres 20× replay e2e (Source B); only the live-source-specific behavior (real headers, backoff/watchdog vs production infra) is unconfirmed.

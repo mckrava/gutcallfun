@@ -379,6 +379,13 @@ interface SingleStreamOpts {
   onEvent: ConnectWithRetryOptions['onEvent'];
   onMeta: ConnectWithRetryOptions['onMeta'];
   watchdogMs: number;
+  /**
+   * Caller's stop/shutdown seam (INGST-04, CR-02). Threaded into the fetch
+   * init object (transport-level abort) AND consulted via an abort listener
+   * that cancels the active reader — so a blocked `reader.read()` is
+   * interrupted promptly instead of waiting out the idle watchdog.
+   */
+  signal?: AbortSignal;
   /** Invoked with each SSE id field value so the caller can track lastEventId. */
   onLastEventId: (id: string) => void;
   /**
@@ -420,7 +427,7 @@ async function runSingleStream(opts: SingleStreamOpts): Promise<void> {
     headers['Last-Event-ID'] = opts.lastEventId;
   }
 
-  const response = await opts.fetchImpl(opts.endpoint, { method: 'GET', headers });
+  const response = await opts.fetchImpl(opts.endpoint, { method: 'GET', headers, signal: opts.signal });
 
   // 401 → AUTH_EXPIRED sentinel: callers must not retry
   if (response.status === 401) {
@@ -452,6 +459,18 @@ async function runSingleStream(opts: SingleStreamOpts): Promise<void> {
   const decoder = new TextDecoder();
   let buffer = '';
   let watchdogTimer: ReturnType<typeof setTimeout> | undefined;
+
+  // CR-02: cancel the active reader on abort so a blocked reader.read() is
+  // interrupted promptly rather than waiting out the idle watchdog. Cancel
+  // errors are swallowed — the reader may already be closed/errored.
+  const onAbort = (): void => {
+    try {
+      reader.cancel();
+    } catch {
+      // Ignore — reader may already be closed
+    }
+  };
+  opts.signal?.addEventListener('abort', onAbort, { once: true });
 
   /** Reset the idle watchdog. Called on every raw chunk from reader.read(). */
   const resetWatchdog = (): void => {
@@ -529,6 +548,7 @@ async function runSingleStream(opts: SingleStreamOpts): Promise<void> {
       }
     }
   } finally {
+    opts.signal?.removeEventListener('abort', onAbort);
     if (watchdogTimer !== undefined) clearTimeout(watchdogTimer);
   }
 }
@@ -602,6 +622,7 @@ export async function connectWithRetry(opts: ConnectWithRetryOptions): Promise<v
         onEvent,
         onMeta,
         watchdogMs,
+        signal,
         onLastEventId: (id) => {
           lastEventId = id;
         },
