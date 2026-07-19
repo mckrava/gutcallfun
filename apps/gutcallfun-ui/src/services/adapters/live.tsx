@@ -68,7 +68,12 @@ export function deriveLiveMatch(game: Game, live: LiveGameState | undefined): Li
   const scoreBr = String(snap?.score_p1 ?? game.score_p1);
   const scoreAr = String(snap?.score_p2 ?? game.score_p2);
 
-  const stage = snap?.possession_stage ? (POSSESSION_STAGE[snap.possession_stage] ?? 0) : 0;
+  // The live stage wins: `snapshot` fires only once per subscribe, so reading it
+  // alone froze the meter at the subscribe-time stage. LiveProvider seeds from
+  // that snapshot and then advances on staged `game_event`s; the snapshot stays
+  // as the fallback for the window before the provider has seen either.
+  const stageName = live?.possessionStage ?? snap?.possession_stage ?? null;
+  const stage = stageName ? (POSSESSION_STAGE[stageName] ?? 0) : 0;
   const participant = live?.activeQuestion?.participant ?? live?.lastGameEvent?.participant ?? 1;
   const isBr = participant === 1;
 

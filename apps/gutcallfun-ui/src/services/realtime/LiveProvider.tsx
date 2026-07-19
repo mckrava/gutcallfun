@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type {
   GameEventMessage,
+  PossessionStage,
   Question,
   ResolutionMessage,
   Snapshot,
@@ -12,11 +13,26 @@ import { createSocket, type LiveSocket } from "./socket";
 
 export type ConnectionStatus = "connecting" | "connected" | "disconnected";
 
+// `snapshot` is emitted once per subscribe, so its `possession_stage` is only a
+// seed — every later possession change arrives as a `game_event` whose `type` is
+// one of the four staged feed actions. Exact-string lookup, never substring
+// matching: the bare `possession` marker (ball-holder change) is deliberately
+// absent and must leave the stage untouched, not read as a danger stage.
+// Mirrors ACTION_TO_STAGE in gutcallfun-core's ingest/state/possession.ts.
+const EVENT_TYPE_TO_STAGE: Record<string, PossessionStage> = {
+  safe_possession: "SafePossession",
+  attack_possession: "AttackPossession",
+  danger_possession: "DangerPossession",
+  high_danger_possession: "HighDangerPossession",
+};
+
 export interface LiveGameState {
   gameId: number;
   snapshot: Snapshot | null;
   /** Currently open prediction window (from snapshot or a `question` event); cleared on resolve/void. */
   activeQuestion: Question | null;
+  /** Live possession stage: seeded by `snapshot`, then advanced by staged `game_event`s. */
+  possessionStage: PossessionStage | null;
   lastResolution: ResolutionMessage | null;
   lastGameEvent: GameEventMessage | null;
   lastVoid: VoidMessage | null;
@@ -34,7 +50,7 @@ interface LiveContextValue {
 const LiveContext = createContext<LiveContextValue | null>(null);
 
 function emptyGame(gameId: number): LiveGameState {
-  return { gameId, snapshot: null, activeQuestion: null, lastResolution: null, lastGameEvent: null, lastVoid: null, resolutions: [] };
+  return { gameId, snapshot: null, activeQuestion: null, possessionStage: null, lastResolution: null, lastGameEvent: null, lastVoid: null, resolutions: [] };
 }
 
 export function LiveProvider({ children }: { children: ReactNode }) {
@@ -74,7 +90,14 @@ export function LiveProvider({ children }: { children: ReactNode }) {
     socket.io.on("reconnect_attempt", () => setStatus("connecting"));
 
     socket.on("snapshot", (s: Snapshot) => {
-      patch(s.game_id, (prev) => ({ ...prev, snapshot: s, activeQuestion: s.active_question }));
+      // Re-seeds the stage: on a reconnect this is authoritative server state,
+      // so it intentionally supersedes whatever the events had advanced it to.
+      patch(s.game_id, (prev) => ({
+        ...prev,
+        snapshot: s,
+        activeQuestion: s.active_question,
+        possessionStage: s.possession_stage,
+      }));
     });
     socket.on("question", (q) => {
       patch(q.game_id, (prev) => ({ ...prev, activeQuestion: q }));
@@ -88,7 +111,14 @@ export function LiveProvider({ children }: { children: ReactNode }) {
       }));
     });
     socket.on("game_event", (e: GameEventMessage) => {
-      patch(e.game_id, (prev) => ({ ...prev, lastGameEvent: e }));
+      // Unmapped types (goals, cards, the bare `possession` marker, …) still
+      // record as lastGameEvent but leave the stage exactly where it was.
+      const staged = EVENT_TYPE_TO_STAGE[e.type];
+      patch(e.game_id, (prev) => ({
+        ...prev,
+        lastGameEvent: e,
+        possessionStage: staged ?? prev.possessionStage,
+      }));
     });
     socket.on("void", (v: VoidMessage) => {
       patchByQuestion(v.game_question_id, (prev) => ({ ...prev, activeQuestion: null, lastVoid: v }));
