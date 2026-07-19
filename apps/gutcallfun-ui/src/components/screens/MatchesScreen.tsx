@@ -44,6 +44,10 @@ export function MatchesScreen() {
               <div style={{ width: 3, height: 3, borderRadius: "50%", background: "rgba(220,230,245,.3)" }}></div>
               <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 12, letterSpacing: "1px", color: "#FFD84D", background: "rgba(255,216,77,.12)", border: "1px solid rgba(255,216,77,.35)", borderRadius: 6, padding: "2px 9px" }}>{vm.liveHero.stage}</div>
               </>)}
+              {vm.liveHero.isReplay && (<>
+              <div style={{ width: 3, height: 3, borderRadius: "50%", background: "rgba(220,230,245,.3)" }}></div>
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 12, letterSpacing: "1px", color: "rgba(220,230,245,.65)", background: "rgba(220,230,245,.08)", border: "1px solid rgba(220,230,245,.22)", borderRadius: 6, padding: "2px 9px" }}>REPLAY</div>
+              </>)}
             </div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "20px 4px 18px", position: "relative" }}>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, width: 104 }}>
