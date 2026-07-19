@@ -8,12 +8,20 @@ import { useLiveGame } from "@/services/realtime/LiveProvider";
 import { deriveLiveGoal, deriveLiveMatch, deriveLiveWindow } from "@/services/adapters/live";
 import { setRealData } from "@/state/realData";
 
+// How long the prediction overlay lingers past the answer lock (`expires_at`)
+// before it is dismissed. Long enough to register the ring hitting zero, short
+// enough that it never reads as stuck. The ring ticks at 250ms, so the actual
+// dismissal lands within a quarter-second of this.
+const WINDOW_LINGER_MS = 1000;
+
 // Bridges a real live game's WebSocket feed into the mock LiveScreen + overlays.
 // Finds the current live game, subscribes to its socket room (snapshot /
 // question / resolution / game_event), and pushes three derived view-models
 // into the real-data store:
 //   • liveMatch  — score + pressure meter (every snapshot)
-//   • liveWindow — the open prediction window (WS `question`; answering POSTs)
+//   • liveWindow — the open prediction window (WS `question`; answering POSTs).
+//                  Dismissed on the answer lock + WINDOW_LINGER_MS, NOT on the
+//                  later `resolution` event — see the note at its effect.
 //   • liveGoal   — a ~2.6s goal celebration (WS `game_event` type=goal)
 // Renders nothing. Must sit inside <LiveProvider> (it does, via the layout).
 export function LiveMatchBridge() {
@@ -56,20 +64,40 @@ export function LiveMatchBridge() {
   const [picked, setPicked] = useState<{ qid: string; optionId: string } | null>(null);
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
 
-  // Reset the locked answer whenever a new question opens.
+  // Reset the locked answer whenever a new question opens. nowMs is re-seeded
+  // too, so the ring is accurate on the first frame instead of carrying a
+  // timestamp from the previous window.
   useEffect(() => {
     setPicked(null);
+    setNowMs(Date.now());
   }, [questionId]);
 
-  // Tick the countdown ring while a window is open.
+  // The server holds `activeQuestion` open until the window RESOLVES at
+  // RESOLVE_AFTER_MS (open + 12s) — a full 7s after the answer lock at
+  // `expires_at` (open + 5s), and far longer for a window deferring on an
+  // unconfirmed goal (up to GOAL_CONFIRM_GRACE_MS, 90s). Waiting for the
+  // `resolution` event to close the overlay therefore left a drained 0-second
+  // ring on screen for seconds, which reads as a hung popup. Dismiss on the
+  // answer lock instead, plus a short beat so the ring is seen reaching zero.
+  //
+  // PRESENTATION ONLY — deliberately does NOT clear `activeQuestion`:
+  // LiveProvider routes `resolution` and `void` by matching their
+  // game_question_id against the open question, so clearing it early would
+  // strand those events and break points, recap and the resolutions log.
+  const expiresAtMs = question ? new Date(question.expires_at).getTime() : null;
+  const windowDismissed = expiresAtMs !== null && nowMs >= expiresAtMs + WINDOW_LINGER_MS;
+
+  // Tick the countdown ring while a window is open. Stopping once dismissed
+  // matters: a goal window can stay unresolved for ~90s, and this would
+  // otherwise keep re-rendering the whole live screen the entire time.
   useEffect(() => {
-    if (!questionId) return;
-    const t = setInterval(() => setNowMs(Date.now()), 500);
+    if (!questionId || windowDismissed) return;
+    const t = setInterval(() => setNowMs(Date.now()), 250);
     return () => clearInterval(t);
-  }, [questionId]);
+  }, [questionId, windowDismissed]);
 
   useEffect(() => {
-    if (!question || !liveGame) {
+    if (!question || !liveGame || windowDismissed) {
       setRealData({ liveWindow: null });
       return;
     }
