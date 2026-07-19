@@ -12,6 +12,9 @@ import { LiveFeedEmitter } from '../../live/events/live-feed.emitter';
  * ran against the SAME manager" (Pitfall 4) without a real Postgres
  * connection. Every chainable method returns `this`; execute() resolves.
  */
+/** Stand-in for the uuid Postgres RETURNINGs on a real game_event insert. */
+const MOCK_INSERTED_EVENT_ID = '00000000-0000-4000-8000-00000000e001';
+
 function createQueryBuilderMock(calls: string[]) {
   const builder: Record<string, jest.Mock> = {};
   const chain = (name: string) =>
@@ -28,7 +31,15 @@ function createQueryBuilderMock(calls: string[]) {
   builder.where = chain('where');
   builder.execute = jest.fn(async () => {
     calls.push('execute()');
-    return {};
+    // Must mirror TypeORM's real InsertResult shape, not a bare `{}`.
+    // EventIngestService reads `insertResult.identifiers[0]?.id` to obtain the
+    // freshly-inserted game_event id (used as game_question.trigger_event_id),
+    // and TypeORM ALWAYS returns an `identifiers` array — so `{}` made
+    // `.identifiers[0]` throw TypeError and every test in this file fail.
+    // `identifiers` is also the correct shape for the UPDATE executed by the
+    // same mock: an extra key on an update result is harmless, whereas a
+    // missing one is not.
+    return { identifiers: [{ id: MOCK_INSERTED_EVENT_ID }], generatedMaps: [], raw: [] };
   });
   return builder;
 }
