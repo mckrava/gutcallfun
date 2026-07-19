@@ -79,6 +79,7 @@ function liveHero(g: Game, onEnter: () => void, participants: GameParticipant[])
     gameId: g.id,
     comp: (g.competition ?? "").toUpperCase(),
     stage: null,
+    isReplay: g.is_replay,
     team1Name: (g.team1_name ?? "TBD").toUpperCase(),
     team2Name: (g.team2_name ?? "TBD").toUpperCase(),
     team1Col: TEAM1_COL,

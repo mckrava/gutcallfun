@@ -299,6 +299,9 @@ export interface LiveHeroVM {
   gameId: number;
   comp: string;
   stage: string | null;
+  // Mirrors the backend `Game.is_replay` flag; drives the REPLAY provenance
+  // chip on the live hero card.
+  isReplay: boolean;
   team1Name: string;
   team2Name: string;
   team1Col: string;
