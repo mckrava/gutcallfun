@@ -95,7 +95,10 @@ export class ReplayLoopService {
       rows = await this.loopRepo.find({ where: { enabled: true } });
     } catch (err) {
       // Nowhere to persist this — the read itself failed.
-      this.logger.error('ReplayLoopService.tick: failed to load enabled loop rows', err as Error);
+      this.logger.error(
+        'ReplayLoopService.tick: failed to load enabled loop rows',
+        err as Error,
+      );
       return;
     }
 
@@ -159,7 +162,10 @@ export class ReplayLoopService {
    * Force-finishes `game` if its newest activity is older than
    * `row.stallTimeoutSeconds`; otherwise a no-op (live and fresh).
    */
-  private async handleStallWatchdog(row: ReplayLoopEntity, game: GameEntity): Promise<void> {
+  private async handleStallWatchdog(
+    row: ReplayLoopEntity,
+    game: GameEntity,
+  ): Promise<void> {
     const latest = await this.gameEventRepo.findOne({
       where: { gameId: game.id },
       order: { receivedAt: 'DESC' },
@@ -167,7 +173,8 @@ export class ReplayLoopService {
 
     // createdAt is NOT NULL, so this chain always terminates with a real
     // Date — never compare against null.
-    const lastActivity = latest?.receivedAt ?? game.updatedAt ?? game.startsAt ?? game.createdAt;
+    const lastActivity =
+      latest?.receivedAt ?? game.updatedAt ?? game.startsAt ?? game.createdAt;
 
     const staleMs = Date.now() - lastActivity.getTime();
     if (staleMs <= row.stallTimeoutSeconds * 1000) {
@@ -192,7 +199,10 @@ export class ReplayLoopService {
     }
   }
 
-  private async advance(row: ReplayLoopEntity, currentGame: GameEntity | null): Promise<void> {
+  private async advance(
+    row: ReplayLoopEntity,
+    currentGame: GameEntity | null,
+  ): Promise<void> {
     if (
       row.lastRestartAt !== null &&
       Date.now() - row.lastRestartAt.getTime() < row.restartDelaySeconds * 1000

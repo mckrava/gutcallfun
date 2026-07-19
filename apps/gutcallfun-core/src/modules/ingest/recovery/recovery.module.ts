@@ -27,11 +27,20 @@ import { ReplayLoopService } from './replay-loop.service';
 // SourceSchedulerService to pick up on its own next tick (D-02).
 @Module({
   imports: [
-    TypeOrmModule.forFeature([GameEntity, GameEventEntity, UserGameEntity, ReplayLoopEntity]),
+    TypeOrmModule.forFeature([
+      GameEntity,
+      GameEventEntity,
+      UserGameEntity,
+      ReplayLoopEntity,
+    ]),
     PipelineModule,
     StreamModule,
     ReplayModule,
   ],
-  providers: [SourceSchedulerService, GameStateRebuildService, ReplayLoopService],
+  providers: [
+    SourceSchedulerService,
+    GameStateRebuildService,
+    ReplayLoopService,
+  ],
 })
 export class RecoveryModule {}

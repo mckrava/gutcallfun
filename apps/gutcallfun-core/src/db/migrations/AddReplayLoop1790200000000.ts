@@ -83,7 +83,9 @@ export class AddReplayLoop1790200000000 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP INDEX IF EXISTS "public"."idx_replay_loop_enabled"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "public"."idx_replay_loop_enabled"`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS "public"."replay_loop"`);
   }
 }
