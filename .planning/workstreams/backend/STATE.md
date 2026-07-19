@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 Phase: 3 — Wallet Auth & User Identity
 Plan: Not started
 Status: Ready to plan
-Last activity: 2026-07-19 — Completed quick task 260719-fz9: GET /games/:game_id/recap + per-game EKG routing
+Last activity: 2026-07-19 — Completed quick task 260719-hr6: DB-toggled infinite replay loop (clone-forward + stall watchdog)
 
 Progress: [██████████] 100%
 
@@ -102,6 +102,7 @@ Recent decisions affecting current work:
 | 260718-48a | fix CR-01 fixtures cron write race and CR-02 abort signal threading | 2026-07-18 | b29eb4d | [260718-48a-fix-cr-01-fixtures-cron-write-race-and-c](./quick/260718-48a-fix-cr-01-fixtures-cron-write-race-and-c/) |
 | 260719-gl4 | add fake users and activity seed sql | 2026-07-19 | 222d1d5 | [260719-gl4-add-fake-users-and-activity-seed-sql](./quick/260719-gl4-add-fake-users-and-activity-seed-sql/) |
 | 260719-fz9 | Add GET /games/:game_id/recap endpoint and wire MatchEkg to real data | 2026-07-19 | 41feeb3 | [260719-fz9-add-get-games-game-id-recap-endpoint-and](./quick/260719-fz9-add-get-games-game-id-recap-endpoint-and/) |
+| 260719-hr6 | Infinite replay loop: DB-toggled clone-forward replay for post-World-Cup judging | 2026-07-19 | bfb4995 | [260719-hr6-infinite-replay-loop-db-toggled-clone-fo](./quick/260719-hr6-infinite-replay-loop-db-toggled-clone-fo/) |
 
 ### Roadmap Evolution
 
