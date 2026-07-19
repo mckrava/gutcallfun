@@ -1,6 +1,6 @@
 "use client";
 
-import type { FixtureCard, LiveGoalVM, LiveHeroVM, LiveMatchVM, LiveWindowVM, MatchSquadPanelVM, RankRow } from "./types";
+import type { FixtureCard, LiveGoalVM, LiveHeroVM, LiveMatchVM, LiveWindowVM, LiveWinToastVM, MatchSquadPanelVM, RankRow } from "./types";
 
 // A tiny module-level observable holding real, backend-sourced view-model rows
 // that OVERRIDE the mock constants when present. The bridge (a hook-driven
@@ -27,6 +27,9 @@ export interface RealData {
   // `game_event` type=goal). null = nothing showing → mock overlay fields.
   liveWindow?: LiveWindowVM | null;
   liveGoal?: LiveGoalVM | null;
+  // Compact correct-answer win pop, set by LiveMatchBridge when the caller's own
+  // pick wins a resolution; cleared by its auto-dismiss timer or a tap.
+  liveWinToast?: LiveWinToastVM | null;
   // "YOUR POINTS" for the live match — sum of my answers' awarded points.
   liveDispPts?: string;
   // The currently-live game's id, published by RealDataBridge so other bridges
@@ -37,6 +40,9 @@ export interface RealData {
   matchSquadPanel?: MatchSquadPanelVM | null;
   rankTop3?: RankRow[];
   rankAround?: RankRow[];
+  // The caller's own rank on the global board ("#N"), for the LiveScreen footer.
+  // null = leaderboard loaded but the caller isn't on it yet → mock fallback.
+  liveGlobalRank?: string | null;
 }
 
 let current: RealData = {};

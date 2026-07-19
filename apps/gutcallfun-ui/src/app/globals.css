@@ -32,6 +32,7 @@ a:hover {
 @keyframes kfGlow { 0%,100%{opacity:.5;} 50%{opacity:.9;} }
 @keyframes kfRise { 0%{transform:translateY(14px);opacity:0;} 100%{transform:translateY(0);opacity:1;} }
 @keyframes kfEnter { 0%{box-shadow:0 6px 18px rgba(255,200,0,.25),0 0 0 0 rgba(255,216,77,.55);} 70%{box-shadow:0 6px 18px rgba(255,200,0,.25),0 0 0 12px rgba(255,216,77,0);} 100%{box-shadow:0 6px 18px rgba(255,200,0,.25),0 0 0 0 rgba(255,216,77,0);} }
+@keyframes kfShine { 0%{transform:translateX(-100%);} 100%{transform:translateX(120%);} }
 .enter-btn { animation: kfEnter 1.8s ease-out infinite; }
 
 *::-webkit-scrollbar { width: 5px; height: 5px; }

@@ -294,6 +294,17 @@ export interface LiveGoalVM {
   goalScore: string;
 }
 
+// Compact "you called it" win — shown when the caller's OWN answer resolves
+// correct (their pick == resolved_option_id). A gambling-style payout pop, not a
+// full-screen takeover: it floats over the live screen and auto-dismisses. See
+// components/overlays/WinToast and deriveWinToast.
+export interface LiveWinToastVM {
+  points: number;
+  headline: string; // punchy copy scaled to the reward ("NICE CALL!" → "JACKPOT!")
+  outcomeLabel: string; // the outcome they correctly called ("GOAL", "SHOT"…)
+  emoji: string; // celebratory glyph, also scaled to the reward
+}
+
 // The "LIVE NOW" hero on the Matches screen, driven by a real live game.
 export interface LiveHeroVM {
   gameId: number;
@@ -511,6 +522,14 @@ export interface ViewModel {
   goalTeamName: string;
   goalScore: string;
   dismissGoal: Handler;
+
+  // correct-answer win celebration (compact, auto-dismissing)
+  winToastOn: boolean;
+  winToastPoints: string;
+  winToastHeadline: string;
+  winToastOutcome: string;
+  winToastEmoji: string;
+  dismissWinToast: Handler;
 
   // auth / onboarding
   connectWallet: Handler;

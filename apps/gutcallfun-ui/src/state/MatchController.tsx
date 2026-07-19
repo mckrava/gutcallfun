@@ -55,6 +55,8 @@ export default class MatchController extends React.Component<ControllerProps, Ap
   _unsubReal?: () => void;
   /** Route already handed to router.push, still waiting for `pathname` to catch up. */
   _routeRequested?: string;
+  /** The route the engine last *wanted*. Lets us tell an engine-driven change from a URL-driven one. */
+  _lastDesired?: string;
 
   state: AppState = this.fresh();
 
@@ -155,8 +157,20 @@ export default class MatchController extends React.Component<ControllerProps, Ap
     if (this.props.pathname === desired) {
       // Arrived — allow a future push to this same route.
       this._routeRequested = undefined;
+      this._lastDesired = desired;
       return;
     }
+    // pathname disagrees with what the engine wants. Only navigate when the
+    // ENGINE just changed its intended route (an in-app action). If `desired` is
+    // unchanged from the last sync, the URL moved on its OWN — a router.push from
+    // a screen (e.g. tapping a squad card), the browser back/forward button, or
+    // our own push still completing. In every one of those cases the route→engine
+    // page effect (useSyncNav / useSyncSquadDetail …) will pull the engine onto
+    // the new URL a tick later. Re-pushing the stale engine route here fights that
+    // navigation, and because the engine is then always one step behind the URL it
+    // ping-pongs the two routes forever (the squad list ⇄ squad detail loop).
+    if (desired === this._lastDesired) return;
+    this._lastDesired = desired;
     // A router.push is not instant: Next fetches the RSC payload, and only then
     // does `pathname` update. componentDidUpdate runs on EVERY update — including
     // every forceUpdate from the real-data store — so without this guard each one
@@ -400,6 +414,7 @@ export default class MatchController extends React.Component<ControllerProps, Ap
   dismissWin = () => { clearInterval(this._ct); this.setState({ win: null, winDrag: 0 }); };
   demoGoal = () => { clearInterval(this._ct); this.setState({ screen: "live", flash: "br", shake: true, slam: { word: "GOAL", sub: "RODRYGO · 12'", team: "br" }, score: { br: 1, ar: 0 } }); this._t(() => this.setState({ flash: null, shake: false }), 950); };
   dismissGoal = () => { setRealData({ liveGoal: null }); this.setState({ slam: null, flash: null, shake: false }); };
+  dismissWinToast = () => setRealData({ liveWinToast: null });
   connectWallet = () => this.setState({ authStep: "username" });
   saveUsername = () => this.setState({ authStep: "done" });
   showOnboarding = () => this.setState({ authStep: "connect", onbUser: "" });
@@ -676,7 +691,10 @@ export default class MatchController extends React.Component<ControllerProps, Ap
       liveT2: lm?.t2Name ?? "ARGENTINA",
       commMain: s.comm[0] ? s.comm[0].t : "", commPrev: s.comm[1] ? s.comm[1].t : "",
       squadRow: s.squad.map((q) => ({ n: q.n, ini: q.ini, c: q.c, pts: String(q.pts), r: q.r || "", hasR: !!q.r })),
-      dispPts: rd.liveDispPts ?? String(s.dispPts), rankChip: "#" + rank + " IN SQUAD",
+      // Real "my rank in the squad" comes from the game-scoped duel panel (the
+      // "you" row); the mock `rank` (derived from the simulation squad) is only
+      // the fallback before that panel exists.
+      dispPts: rd.liveDispPts ?? String(s.dispPts), rankChip: "#" + ((rd.matchSquadPanel?.rows.find((r) => r.isYou)?.rank) ?? rank) + " IN SQUAD",
       flashOn: lg?.flashOn ?? !!s.flash,
       flashBg: lg?.flashBg ?? (s.flash === "br" ? "radial-gradient(ellipse at 50% 40%, rgba(255,216,77,.9), rgba(255,216,77,0) 72%)" : s.flash === "ar" ? "radial-gradient(ellipse at 50% 40%, rgba(127,184,232,.9), rgba(127,184,232,0) 72%)" : "radial-gradient(ellipse at 50% 40%, rgba(255,255,255,.65), rgba(255,255,255,0) 72%)"),
       slamOn: lg?.slamOn ?? !!s.slam,
@@ -688,6 +706,12 @@ export default class MatchController extends React.Component<ControllerProps, Ap
       goalTeamName: lg?.goalTeamName ?? (s.slam ? T[s.slam.team].nice.toUpperCase() + " SCORE" : ""),
       goalScore: lg?.goalScore ?? (s.slam ? ("BRA " + s.score.br + " – " + s.score.ar + " ARG") : ""),
       dismissGoal: this.dismissGoal,
+      winToastOn: !!rd.liveWinToast,
+      winToastPoints: rd.liveWinToast ? "+" + rd.liveWinToast.points : "",
+      winToastHeadline: rd.liveWinToast?.headline ?? "",
+      winToastOutcome: rd.liveWinToast?.outcomeLabel ?? "",
+      winToastEmoji: rd.liveWinToast?.emoji ?? "",
+      dismissWinToast: this.dismissWinToast,
       isAuth: s.authStep === "connect", isUsername: s.authStep === "username",
       connectWallet: this.connectWallet, saveUsername: this.saveUsername, showOnboarding: this.showOnboarding,
       onbUser: s.onbUser, setOnb: this.setOnb,
@@ -697,7 +721,9 @@ export default class MatchController extends React.Component<ControllerProps, Ap
       totalPts: String(s.pts),
       rankLine: "#" + rank,
       globalPct: "TOP " + Math.max(1, 40 - Math.floor(s.pts / 4)) + "%",
-      globalRank: "#" + Math.max(204, 8420 - s.pts * 11).toLocaleString("en-US"),
+      // Real global rank from the backend leaderboard (RealDataBridge); the mock
+      // formula on simulation points is the fallback until it loads.
+      globalRank: rd.liveGlobalRank ?? "#" + Math.max(204, 8420 - s.pts * 11).toLocaleString("en-US"),
       postSquadName: (s.matchSquadIdx != null ? SQUADS[s.matchSquadIdx].name : "YOUR SQUAD").toUpperCase(),
       bestCall: best ? "Called " + LBL[best.pick!] + " at " + best.clock + " (+" + best.earned + ")" : "None landed — the match owned you tonight",
       postRows: postRows,

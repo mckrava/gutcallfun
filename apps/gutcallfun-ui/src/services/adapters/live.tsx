@@ -1,6 +1,6 @@
-import type { Game, Question } from "@/services/api/types";
+import type { Game, OutcomeKey, Question, ResolutionMessage } from "@/services/api/types";
 import type { LiveGameState } from "@/services/realtime/LiveProvider";
-import type { LiveGoalVM, LiveMatchVM, LiveWindowVM, StagePill } from "@/state/types";
+import type { LiveGoalVM, LiveMatchVM, LiveWindowVM, LiveWinToastVM, StagePill } from "@/state/types";
 import { CountryFlag } from "@/components/common/CountryFlag";
 
 // Per-team style triples (accent / gradient-2 / dark-ink) — the mock's TEAMS.
@@ -178,5 +178,28 @@ export function deriveLiveGoal(game: Game, participant: 1 | 2, score1: number, s
     goalFlagEl: <CountryFlag name={isBr ? game.team1_name : game.team2_name} size={84} />,
     goalTeamName: name.toUpperCase() + " SCORE",
     goalScore: `${code(game.team1_name)} ${score1} – ${score2} ${code(game.team2_name)}`,
+  };
+}
+
+// What the caller correctly called, per resolved outcome — the upper-cased
+// sub-label on the win pop ("YOU CALLED …").
+const WIN_OUTCOME_LABEL: Record<OutcomeKey, string> = {
+  goal: "GOAL",
+  shot: "SHOT ON TARGET",
+  danger: "DANGER",
+  fizzles: "READING THE PLAY",
+};
+
+// A resolution the caller won → the compact win-celebration view-model. Copy and
+// glyph scale with the reward so the 100-pt goal reads as the jackpot it is.
+export function deriveWinToast(res: ResolutionMessage): LiveWinToastVM {
+  const pts = res.awarded_points;
+  const headline = pts >= 100 ? "JACKPOT CALL!" : pts >= 15 ? "HUGE CALL!" : "NICE CALL!";
+  const emoji = pts >= 100 ? "🎰" : pts >= 15 ? "🔥" : "✅";
+  return {
+    points: pts,
+    headline,
+    outcomeLabel: WIN_OUTCOME_LABEL[res.resolved_outcome_key] ?? "CALLED IT",
+    emoji,
   };
 }

@@ -72,19 +72,45 @@ export function squadMembersToRows(
 // The picked squad + its members → the in-match duel panel. `meId` is
 // highlighted and labelled "You"; standing is the caller's rank in the squad.
 //
-// Feed this the GAME-SCOPED squad leaderboard, not the squad participant list:
-// participants carry points earned across the whole squad history, which made
-// this panel rank teammates by matches that are not the one being watched.
+// POINTS come from the GAME-SCOPED squad leaderboard (`scopedRows`), never the
+// squad participant list: participant rows carry points earned across the whole
+// squad history, which made this panel rank teammates by matches that are not
+// the one being watched.
+//
+// ROSTER is the squad's active membership. It exists so the panel shows the
+// WHOLE squad, not only the members who happened to join this game with this
+// squad. The game-scoped board only contains users with a `user_game` row for
+// (game_id, squad_id) — so a squadmate who has not joined tonight (or joined
+// solo) is absent from `scopedRows`, and without the roster the panel collapses
+// to just the caller. Merging keeps the fix above intact: everyone is ranked by
+// THIS game's points (0 until they score), never by lifetime totals.
 export function squadToMatchPanel(
   squad: Squad,
-  participants: RankableMember[],
+  scopedRows: RankableMember[],
   meId?: string | null,
+  roster?: RankableMember[],
 ): MatchSquadPanelVM {
-  const sorted = [...participants].sort((a, b) => b.total_points - a.total_points);
+  // Game-scoped points, keyed by user — the authoritative points source.
+  const scopedByUser = new Map(scopedRows.map((r) => [r.user_id, r]));
+
+  // Union roster ∪ scoped, so both a rostered member who has not scored and a
+  // game-joiner missing from the roster are shown exactly once.
+  const byUser = new Map<string, RankableMember>();
+  for (const m of roster ?? []) byUser.set(m.user_id, m);
+  for (const r of scopedRows) if (!byUser.has(r.user_id)) byUser.set(r.user_id, r);
+
+  // Take each member's identity from the union, but their POINTS from the
+  // game-scoped board (0 when they have no scoped row yet).
+  const sorted = [...byUser.values()]
+    .map((m) => ({ ...m, total_points: scopedByUser.get(m.user_id)?.total_points ?? 0 }))
+    .sort((a, b) => b.total_points - a.total_points);
+
   const rows: MatchSquadRow[] = sorted.map((p, i) => {
     const you = !!meId && p.user_id === meId;
     return {
-      rank: String(p.rank ?? i + 1),
+      // Rank is recomputed by position: the merged set differs from the board's
+      // scoped set, so the server `rank` no longer applies.
+      rank: String(i + 1),
       name: you ? "You" : nameOf(p),
       emoji: emojiOf(p),
       pts: String(p.total_points),
@@ -100,7 +126,7 @@ export function squadToMatchPanel(
     };
   });
   const myIdx = sorted.findIndex((p) => !!meId && p.user_id === meId);
-  const myRank = myIdx >= 0 ? (sorted[myIdx].rank ?? myIdx + 1) : null;
+  const myRank = myIdx >= 0 ? myIdx + 1 : null;
   const standing = myRank !== null ? `#${myRank} OF ${sorted.length}` : `${sorted.length} MEMBERS`;
   return { name: squad.name, emoji: squad.emoji ?? "⚽", standing, rows };
 }
