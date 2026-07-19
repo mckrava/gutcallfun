@@ -294,6 +294,43 @@ case itself, caller scoping (another user's participation is not leaked), and a
 Also corrected a comment in `RealDataBridge` that still claimed a later squad
 pick could not backfill the join — untrue since follow-up 3.
 
+## Follow-up 5: `_rsc` navigation storm / slow page transitions
+
+Reported from the remote deploy: transitions crawl, console full of repeated
+`/live?_rsc=...` requests. `_rsc` is Next's RSC payload fetch, so this is
+`router.push` firing in a loop — not a data problem.
+
+Three compounding causes, all fixed:
+
+1. **`syncRoute` re-issued an in-flight navigation.** It ran on EVERY
+   `componentDidUpdate` — including every `forceUpdate` from the real-data store
+   — and `router.push` is not instant: Next fetches the RSC payload before
+   `pathname` updates. So each update re-pushed the same route while the first
+   was still in flight, and each returned payload re-rendered the tree into
+   another update. Now tracks the requested route and skips until `pathname`
+   catches up.
+
+2. **A write storm feeding it.** `RealDataBridge`'s games effect listed
+   `joinGame` as a dependency, but `useMutation` returns a NEW object every
+   render, so the effect re-ran on every render and wrote to the store each
+   time. Moved to a ref (assigned in an effect — a render-phase ref write is
+   unsafe under concurrent rendering).
+
+3. **No-op writes still notified.** `setRealData` always notified subscribers,
+   so writing an identical value still forced a render and another route sync.
+   Now skips when every key in the patch is `Object.is`-equal to current. Catches
+   the repeating cases (`liveGameId`, `matchSquadId`, `liveDispPts`); freshly
+   built arrays still notify.
+
+**Measured with headless Chrome, 10s window on the same page: 8 `_rsc` requests
+before, 1 after** — and that was the unauthenticated sign-in screen, where the
+loop is weakest. The authenticated `/live` flow drives constant store writes
+from the WS stream, so the real-world multiplier was far higher.
+
+Causes 1 and 2 pre-date this session's work; the extra store writes added for
+liveGameId and squad hydration increased the pressure on an already-looping
+path rather than creating it.
+
 ## Open / deliberately not done
 
 1. **`applyResolutionPoints` now has no readers.** Decide whether to delete the

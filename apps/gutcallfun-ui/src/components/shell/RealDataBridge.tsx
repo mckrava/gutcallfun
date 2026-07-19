@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCurrentUser, useGameParticipants, useGames, useJoinGame, useLeaderboard, useMyGameParticipation } from "@/services/api/hooks";
 import { queryKeys } from "@/services/api/queryKeys";
@@ -31,6 +31,14 @@ export function RealDataBridge() {
   const liveGame = games.data?.items.find((g) => g.status === "live") ?? null;
   const joinGame = useJoinGame(liveGame?.id ?? -1);
   const participants = useGameParticipants(liveGame?.id ?? null);
+  // Kept in a ref so the join callback below stays current without making the
+  // mutation's unstable identity an effect dependency. Assigned in an effect,
+  // not during render — a render-phase ref write is unsafe under concurrent
+  // rendering, where a render can be discarded.
+  const joinGameRef = useRef(joinGame);
+  useEffect(() => {
+    joinGameRef.current = joinGame;
+  });
 
   // Publish which game is live so MatchSquadBridge can scope its board to it.
   useEffect(() => {
@@ -68,7 +76,7 @@ export function RealDataBridge() {
         // squad_id: null would be rejected by the DTO validator, and an omitted
         // squad_id never clears an association the server already holds.
         // Picking a squad later re-joins and updates the row (see SquadModal).
-        joinGame.mutate(
+        joinGameRef.current.mutate(
           matchSquadId != null ? { squad_id: matchSquadId } : {},
           { onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.games.participants(game.id) }) },
         );
@@ -76,7 +84,13 @@ export function RealDataBridge() {
       },
     });
     setRealData({ laterMatches, pastMatches, liveHero });
-  }, [games.data, participants.data, enterLive, joinGame, qc, matchSquadId]);
+    // `joinGame` is deliberately NOT a dependency: useMutation returns a new
+    // object every render, so depending on it re-ran this effect on every
+    // render, and each run wrote to the real-data store. Every write forces a
+    // MatchController update, which re-runs its route sync — the write storm
+    // behind the `_rsc` navigation storm. The ref keeps the callback current
+    // without tying the effect to that identity.
+  }, [games.data, participants.data, enterLive, qc, matchSquadId]);
 
   useEffect(() => {
     if (!leaderboard.data) return;

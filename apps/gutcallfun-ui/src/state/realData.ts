@@ -48,7 +48,16 @@ export function getRealData(): RealData {
 
 // Shallow-merge a patch and notify subscribers. Pass a slot as undefined-free:
 // only the keys present in `patch` are replaced.
+//
+// A patch that changes nothing does NOT notify. Every subscriber re-renders on
+// notify — MatchController force-updates and re-runs its route sync — so a
+// no-op write is not free, and an effect that writes the same value on each
+// render becomes a render loop. This only catches identity-equal values
+// (primitives and reused references), which is exactly the case that repeats:
+// liveGameId, matchSquadId, liveDispPts. Freshly-built arrays still notify.
 export function setRealData(patch: RealData): void {
+  const keys = Object.keys(patch) as (keyof RealData)[];
+  if (keys.every((k) => Object.is(current[k], patch[k]))) return;
   current = { ...current, ...patch };
   for (const fn of subscribers) fn();
 }

@@ -53,6 +53,8 @@ export default class MatchController extends React.Component<ControllerProps, Ap
   _dragY0 = 0;
   _dragging = false;
   _unsubReal?: () => void;
+  /** Route already handed to router.push, still waiting for `pathname` to catch up. */
+  _routeRequested?: string;
 
   state: AppState = this.fresh();
 
@@ -149,7 +151,20 @@ export default class MatchController extends React.Component<ControllerProps, Ap
   }
   syncRoute() {
     const desired = this.routeForState();
-    if (this.props.pathname !== desired) this.props.navigate(desired);
+    if (this.props.pathname === desired) {
+      // Arrived — allow a future push to this same route.
+      this._routeRequested = undefined;
+      return;
+    }
+    // A router.push is not instant: Next fetches the RSC payload, and only then
+    // does `pathname` update. componentDidUpdate runs on EVERY update — including
+    // every forceUpdate from the real-data store — so without this guard each one
+    // re-issues the same navigation while the first is still in flight, and each
+    // resulting payload re-renders the tree into another update. That is a
+    // self-sustaining storm of `/live?_rsc=` requests that makes navigation crawl.
+    if (this._routeRequested === desired) return;
+    this._routeRequested = desired;
+    this.props.navigate(desired);
   }
 
   clearAll() {
