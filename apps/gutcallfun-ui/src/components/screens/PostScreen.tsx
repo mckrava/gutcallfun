@@ -1,10 +1,13 @@
 "use client";
 
 import { useApp } from "@/state/context";
+import { useRecapData } from "./useRecapData";
+import { MatchEkg } from "@/components/common/MatchEkg";
 
-// Ported verbatim from the "Post-match EKG" screen in the old template (isPost block).
+// Real post-match recap — score / points / ranks / calls all from useRecapData.
 export function PostScreen() {
   const vm = useApp();
+  const r = useRecapData();
   return (
     <div
       data-screen-label="Post-match EKG"
@@ -13,11 +16,11 @@ export function PostScreen() {
       <button onClick={vm.goHome} style={{ alignSelf: "flex-start", background: "none", border: "none", cursor: "pointer", color: "rgba(220,230,245,.55)", fontFamily: "Barlow,sans-serif", fontSize: 13, fontWeight: 600, padding: "2px 0" }}>‹ Matches</button>
 
       <div style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 8px" }}>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, width: 64 }}>{vm.brFlag}<div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 13, color: "#FFD84D" }}>BRA</div></div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, width: 64 }}>{r.brFlag}<div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 13, color: "#FFD84D" }}>{r.t1}</div></div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 44, lineHeight: 1, letterSpacing: 2 }}>{vm.scoreBr} – {vm.scoreAr}</div>
+          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 44, lineHeight: 1, letterSpacing: 2 }}>{r.scoreBr} – {r.scoreAr}</div>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, width: 64 }}>{vm.arFlag}<div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 13, color: "#7FB8E8" }}>ARG</div></div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, width: 64 }}>{r.arFlag}<div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 13, color: "#7FB8E8" }}>{r.t2}</div></div>
       </div>
 
       <div style={{ marginTop: 16, borderRadius: 20, background: "linear-gradient(165deg,#131F38 0%,#0A1120 75%)", border: "1px solid rgba(255,255,255,.1)", padding: 16, boxShadow: "0 18px 50px rgba(0,0,0,.5)" }}>
@@ -29,9 +32,9 @@ export function PostScreen() {
             </div>
             <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 16, letterSpacing: "1.5px" }}>YOUR MATCH EKG</div>
           </div>
-          <div style={{ fontSize: "9.5px", fontWeight: 700, letterSpacing: 1, color: "rgba(220,230,245,.4)" }}>BRA 1 – 1 ARG</div>
+          <div style={{ fontSize: "9.5px", fontWeight: 700, letterSpacing: 1, color: "rgba(220,230,245,.4)" }}>{r.ftLine}</div>
         </div>
-        <div style={{ margin: "12px 0 4px" }}>{vm.ekgSvg}</div>
+        <div style={{ margin: "12px 0 4px" }}><MatchEkg hist={r.ekgHist} t1={r.t1} t2={r.t2} /></div>
         <div style={{ display: "flex", gap: 14, justifyContent: "center", marginTop: 6 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "9.5px", color: "rgba(220,230,245,.5)" }}><div style={{ width: 7, height: 7, borderRadius: "50%", background: "#FFD84D" }} />Goals</div>
           <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "9.5px", color: "rgba(220,230,245,.5)" }}><div style={{ width: 7, height: 7, borderRadius: "50%", background: "#3DDC84" }} />Your calls landed</div>
@@ -40,17 +43,17 @@ export function PostScreen() {
         <div style={{ height: 1, background: "rgba(255,255,255,.08)", margin: "14px 0" }} />
         <div style={{ display: "flex" }}>
           <div style={{ flex: 1, textAlign: "center" }}>
-            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 30, color: "#FFD84D", lineHeight: 1 }}>{vm.totalPts}</div>
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 30, color: "#FFD84D", lineHeight: 1 }}>{r.totalPts}</div>
             <div style={{ marginTop: 3, fontSize: 9, fontWeight: 700, letterSpacing: "1.5px", color: "rgba(220,230,245,.45)" }}>POINTS</div>
           </div>
           <div style={{ width: 1, background: "rgba(255,255,255,.08)" }} />
           <div style={{ flex: 1, textAlign: "center" }}>
-            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 30, lineHeight: 1 }}>{vm.rankLine}</div>
-            <div style={{ marginTop: 3, fontSize: 9, fontWeight: 700, letterSpacing: "1.5px", color: "rgba(220,230,245,.45)" }}>IN {vm.postSquadName}</div>
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 30, lineHeight: 1 }}>{r.rankLine}</div>
+            <div style={{ marginTop: 3, fontSize: 9, fontWeight: 700, letterSpacing: "1.5px", color: "rgba(220,230,245,.45)" }}>IN {r.squadName}</div>
           </div>
           <div style={{ width: 1, background: "rgba(255,255,255,.08)" }} />
           <div style={{ flex: 1, textAlign: "center" }}>
-            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 30, lineHeight: 1, color: "#7FB8E8" }}>{vm.globalRank}</div>
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 30, lineHeight: 1, color: "#7FB8E8" }}>{r.globalRank}</div>
             <div style={{ marginTop: 3, fontSize: 9, fontWeight: 700, letterSpacing: "1.5px", color: "rgba(220,230,245,.45)" }}>GLOBAL</div>
           </div>
         </div>

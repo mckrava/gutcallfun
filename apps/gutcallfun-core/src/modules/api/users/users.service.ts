@@ -22,6 +22,9 @@ import { UserScoreProfileResponseDto } from './dto/user-score-profile-response.d
 const CROCKFORD_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 const SHARE_CODE_ATTEMPTS = 5;
 
+// Avatar emoji auto-assigned at registration when the client doesn't supply one.
+const AVATAR_EMOJIS = ['🦊', '🐸', '🐙', '🐼', '🚀', '🐢', '🐵', '🐺', '🐝', '🐳', '🦁', '🐧', '🦉', '🐰', '🐨', '🐯'];
+
 /**
  * Narrows a thrown TypeORM error to the underlying pg error fields. TypeORM
  * wraps driver errors in QueryFailedError and exposes the original on
@@ -146,6 +149,7 @@ export class UsersService {
         shareCode: this.generateShareCode(),
         handle: dto.handle,
         image: dto.image ?? null,
+        emoji: dto.emoji ?? AVATAR_EMOJIS[randomInt(AVATAR_EMOJIS.length)],
         scoreProfile: null,
       });
 
@@ -185,6 +189,7 @@ export class UsersService {
 
     if (dto.handle !== undefined) user.handle = dto.handle;
     if (dto.image !== undefined) user.image = dto.image ?? null;
+    if (dto.emoji !== undefined) user.emoji = dto.emoji ?? null;
     user.updatedAt = new Date();
 
     try {
@@ -246,6 +251,7 @@ export class UsersService {
       share_code: user.shareCode,
       handle: user.handle,
       image: user.image ?? null,
+      emoji: user.emoji ?? null,
       score_profile: user.scoreProfile ?? null,
       created_at: toIso(user.createdAt) as string,
       updated_at: toIso(user.updatedAt),

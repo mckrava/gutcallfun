@@ -38,4 +38,10 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   image?: string;
+
+  @ApiPropertyOptional({ example: '🦊', description: 'Avatar emoji; auto-assigned when omitted.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(8)
+  emoji?: string;
 }

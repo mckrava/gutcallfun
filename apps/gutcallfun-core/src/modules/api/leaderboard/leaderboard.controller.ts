@@ -13,7 +13,7 @@ export class LeaderboardController {
   @Public()
   @Get()
   @ApiOkResponse({ type: PaginatedLeaderboardResponseDto })
-  findAll(@Query() query: PaginationQueryDto): PaginatedLeaderboardResponseDto {
+  findAll(@Query() query: PaginationQueryDto): Promise<PaginatedLeaderboardResponseDto> {
     return this.leaderboardService.findAll(query);
   }
 }

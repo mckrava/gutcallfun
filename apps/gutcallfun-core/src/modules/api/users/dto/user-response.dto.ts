@@ -29,6 +29,9 @@ export class UserResponseDto {
   @ApiProperty({ example: 'seed:mock-avatar-striker-09', nullable: true })
   image: string | null;
 
+  @ApiProperty({ example: '🦊', nullable: true, description: 'Persisted avatar emoji.' })
+  emoji: string | null;
+
   @ApiProperty({
     example: 'usp_mock_0001',
     nullable: true,

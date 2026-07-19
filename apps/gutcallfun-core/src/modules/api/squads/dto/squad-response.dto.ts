@@ -16,6 +16,12 @@ export class SquadResponseDto {
   @ApiProperty({ example: 'seed:mock-squad-alpha', nullable: true })
   image: string | null;
 
+  @ApiProperty({ example: '🔥', nullable: true, description: 'Persisted crest emoji.' })
+  emoji: string | null;
+
+  @ApiProperty({ type: 'integer', example: 4, description: 'Active participant count.' })
+  member_count: number;
+
   @ApiProperty({ example: 'GCSQ-ALPHA1', nullable: true })
   invite_code: string | null;
 

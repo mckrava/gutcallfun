@@ -2,7 +2,6 @@
 
 import { useApp } from "@/state/context";
 import { Fragment } from "react";
-import { Flag } from "@/components/common/Flag";
 import arrow from "@/icons/arrow.svg";
 
 export function MatchesScreen() {
@@ -29,53 +28,56 @@ export function MatchesScreen() {
       <div style={{ flex: 1, overflowY: "auto", margin: "16px -6px 0", padding: "2px 6px 8px", display: "flex", flexDirection: "column", gap: 20 }}>
 
       {vm.isUpcoming && (<>
+        {vm.hasLiveGame && vm.liveHero && (
         <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#FF4D5E", animation: "kfDot 1.1s ease-in-out infinite" }}></div>
             <div style={{ fontSize: "10.5px", fontWeight: 700, letterSpacing: "2.5px", color: "#FF6B78" }}>LIVE NOW</div>
           </div>
-          <button onClick={vm.liveClick} style={{ width: "100%", display: "block", textAlign: "left", border: "none", cursor: "pointer", borderRadius: 22, padding: 0, background: "none", color: "#F2F6FC" }}>
+          <button onClick={vm.liveHero.onEnter} style={{ width: "100%", display: "block", textAlign: "left", border: "none", cursor: "pointer", borderRadius: 22, padding: 0, background: "none", color: "#F2F6FC" }}>
           <div style={{ borderRadius: 22, background: "linear-gradient(165deg,#182642 0%,#0A1120 100%)", border: "1px solid rgba(255,216,77,.35)", padding: 18, boxShadow: "0 14px 44px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.06)", position: "relative", overflow: "hidden" }}>
             <div style={{ position: "absolute", top: "-40%", right: "-20%", width: 220, height: 220, background: "radial-gradient(circle, rgba(255,216,77,.13), transparent 68%)", pointerEvents: "none" }}></div>
             <div style={{ display: "flex", alignItems: "center", gap: 9, position: "relative" }}>
               <div style={{ fontSize: 14, lineHeight: 1 }}>🏆</div>
-              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 14, letterSpacing: "1px", color: "#F2F6FC" }}>WORLD CUP 26</div>
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 14, letterSpacing: "1px", color: "#F2F6FC" }}>{vm.liveHero.comp}</div>
+              {vm.liveHero.stage && (<>
               <div style={{ width: 3, height: 3, borderRadius: "50%", background: "rgba(220,230,245,.3)" }}></div>
-              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 12, letterSpacing: "1px", color: "#FFD84D", background: "rgba(255,216,77,.12)", border: "1px solid rgba(255,216,77,.35)", borderRadius: 6, padding: "2px 9px" }}>SEMI-FINAL</div>
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 12, letterSpacing: "1px", color: "#FFD84D", background: "rgba(255,216,77,.12)", border: "1px solid rgba(255,216,77,.35)", borderRadius: 6, padding: "2px 9px" }}>{vm.liveHero.stage}</div>
+              </>)}
             </div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "20px 4px 18px", position: "relative" }}>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, width: 104 }}>
-                <div style={{ width: 58, height: 58, borderRadius: "50%", boxShadow: "0 0 0 2.5px #FFD84D, 0 0 22px rgba(255,216,77,.3)" }}>
-                  <Flag code="BRA" size={58} />
+                <div style={{ width: 58, height: 58, borderRadius: "50%", boxShadow: `0 0 0 2.5px ${vm.liveHero.team1Col}, 0 0 22px rgba(255,216,77,.3)` }}>
+                  {vm.liveHero.team1Flag}
                 </div>
-                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 18, letterSpacing: ".5px", color: "#FFD84D" }}>BRAZIL</div>
+                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 18, letterSpacing: ".5px", color: vm.liveHero.team1Col }}>{vm.liveHero.team1Name}</div>
               </div>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 42, lineHeight: ".9", letterSpacing: "1px" }}>{vm.liveScore}</div>
+                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 42, lineHeight: ".9", letterSpacing: "1px" }}>{vm.liveHero.score}</div>
                 <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: "1.5px", color: "rgba(220,230,245,.4)" }}>SCORE</div>
               </div>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, width: 104 }}>
-                <div style={{ width: 58, height: 58, borderRadius: "50%", boxShadow: "0 0 0 2.5px #7FB8E8, 0 0 22px rgba(127,184,232,.3)" }}>
-                  <Flag code="ARG" size={58} />
+                <div style={{ width: 58, height: 58, borderRadius: "50%", boxShadow: `0 0 0 2.5px ${vm.liveHero.team2Col}, 0 0 22px rgba(127,184,232,.3)` }}>
+                  {vm.liveHero.team2Flag}
                 </div>
-                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 18, letterSpacing: ".5px", color: "#7FB8E8" }}>ARGENTINA</div>
+                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 18, letterSpacing: ".5px", color: vm.liveHero.team2Col }}>{vm.liveHero.team2Name}</div>
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: "1px solid rgba(255,255,255,.08)", paddingTop: 14, position: "relative" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{ display: "flex" }}>
-                  <div style={{ width: 26, height: 26, borderRadius: "50%", background: "#0D1626", border: "2px solid #FF8A5C", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, marginLeft: 0, boxShadow: "0 0 0 2.5px #101a2e" }}>🦊</div>
-                  <div style={{ width: 26, height: 26, borderRadius: "50%", background: "#0D1626", border: "2px solid #6BCB77", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, marginLeft: "-6px", boxShadow: "0 0 0 2.5px #101a2e" }}>🐸</div>
-                  <div style={{ width: 26, height: 26, borderRadius: "50%", background: "#0D1626", border: "2px solid #4D96FF", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, marginLeft: "-6px", boxShadow: "0 0 0 2.5px #101a2e" }}>🐙</div>
-                  <div style={{ width: 26, height: 26, borderRadius: "50%", background: "#0D1626", border: "2px solid #FFD84D", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, marginLeft: "-6px", boxShadow: "0 0 0 2.5px #101a2e" }}>🚀</div>
+                  {vm.liveHero.whoInAvatars.map((a, i) => (
+                    <div key={i} style={{ width: 26, height: 26, borderRadius: "50%", background: "#0D1626", border: `2px solid ${a.ring}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, marginLeft: i === 0 ? 0 : "-6px", boxShadow: "0 0 0 2.5px #101a2e" }}>{a.emoji}</div>
+                  ))}
                 </div>
-                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 600, fontSize: 13, letterSpacing: ".3px", color: "rgba(220,230,245,.6)" }}>Dmytro, Olia +2 are in</div>
+                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 600, fontSize: 13, letterSpacing: ".3px", color: "rgba(220,230,245,.6)" }}>{vm.liveHero.whoInText}</div>
               </div>
               <div className="enter-btn" style={{ display: "flex", alignItems: "center", background: "linear-gradient(135deg,#FFD84D,#FFB300)", borderRadius: 9, padding: "8px 14px" }}><div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 14, letterSpacing: ".5px", color: "#221A00", display: "inline-flex", alignItems: "center", gap: 5 }}>ENTER<img src={arrow.src} alt="" style={{ height: 13, display: "block" }} /></div></div>
             </div>
           </div>
           </button>
         </div>
+        )}
 
         <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
           <div style={{ fontSize: "10.5px", fontWeight: 700, letterSpacing: "2.5px", color: "rgba(220,230,245,.45)" }}>COMING UP</div>
@@ -123,10 +125,12 @@ export function MatchesScreen() {
                   {m.aFlagEl}
                 </div>
               </div>
+              {m.myPts && (
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: "1px solid rgba(255,255,255,.07)", paddingTop: 11 }}>
                 <div style={{ fontSize: "10.5px", color: "rgba(220,230,245,.45)" }}>You earned this match</div>
                 <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 16, color: "#3DDC84", background: "rgba(61,220,132,.12)", border: "1px solid rgba(61,220,132,.3)", borderRadius: 8, padding: "2px 11px" }}>{m.myPts}</div>
               </div>
+              )}
             </div>
             </button>
           </Fragment>))}

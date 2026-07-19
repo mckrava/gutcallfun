@@ -223,6 +223,87 @@ export interface FixtureCard extends Fixture {
   aFlagEl: ReactNode;
 }
 
+// The live "Match Details" screen, driven by a real game's REST detail + the
+// WebSocket snapshot stream. When present it overrides the mock-simulation
+// fields the LiveScreen reads; absent = the demo simulation (backward compat).
+export interface LiveMatchVM {
+  headerComp: string;
+  headerStage: string | null;
+  t1Name: string;
+  t2Name: string;
+  t1Flag: ReactNode;
+  t2Flag: ReactNode;
+  scoreBr: string;
+  scoreAr: string;
+  attText: string;
+  attCol: string;
+  fillLeft: string;
+  fillWidth: string;
+  fillBg: string;
+  fillGlow: string;
+  fillRad: string;
+  pulseBg: string;
+  pulseDur: string;
+  stagePills: StagePill[];
+}
+
+// The in-match "your squad" duel panel, driven by the squad the user picked
+// for this match + its real members.
+export interface MatchSquadPanelVM {
+  name: string;
+  emoji: string;
+  standing: string;
+  rows: MatchSquadRow[];
+}
+
+// Real prediction window driven by a WS `question` event. Same shape the
+// renderVals `winVals` object carries, so it drops in wholesale.
+export interface LiveWindowVM {
+  winOpen: boolean;
+  winTeamColor: string;
+  winGlow: string;
+  winHead: string;
+  ringOffset: string;
+  ringColor: string;
+  ringNum: string;
+  winNote: string;
+  winOpts: WinOpt[];
+}
+
+// Real goal celebration driven by a WS `game_event` (type=goal). Overrides the
+// mock flash/slam fields for a couple of seconds.
+export interface LiveGoalVM {
+  flashOn: boolean;
+  flashBg: string;
+  slamOn: boolean;
+  slamWord: string;
+  slamSub: string;
+  slamColor: string;
+  slamGlow: string;
+  goalBg: string;
+  goalFlagEl: ReactNode;
+  goalTeamName: string;
+  goalScore: string;
+}
+
+// The "LIVE NOW" hero on the Matches screen, driven by a real live game.
+export interface LiveHeroVM {
+  gameId: number;
+  comp: string;
+  stage: string | null;
+  team1Name: string;
+  team2Name: string;
+  team1Col: string;
+  team2Col: string;
+  team1Flag: ReactNode;
+  team2Flag: ReactNode;
+  score: string;
+  onEnter: () => void;
+  // "Who's in" — real users who joined this game.
+  whoInAvatars: { emoji: string; ring: string }[];
+  whoInText: string;
+}
+
 export interface PostRow {
   l: string;
   r: string;
@@ -304,6 +385,13 @@ export interface ViewModel {
   liveClick: Handler;
   liveComp: string; liveClock: string; liveScore: string;
   brFlag: ReactNode; arFlag: ReactNode;
+  hasLiveGame: boolean;
+  liveHero: LiveHeroVM | null;
+  // Live "Match Details" header + team names (real game overrides the mock).
+  liveHdrComp: string;
+  liveHdrStage: string | null;
+  liveT1: string;
+  liveT2: string;
   laterMatches: FixtureCard[];
   pastMatches: FixtureCard[];
 
@@ -316,6 +404,7 @@ export interface ViewModel {
   squadList: SquadListItem[];
   isSquadList: boolean;
   isSquadDetail: boolean;
+  currentSquadId: number;
   backSquadList: Handler;
   squadCards: SquadCard[];
   openCreate: Handler;
@@ -341,6 +430,7 @@ export interface ViewModel {
   // profile
   logout: Handler;
   demoToast: Handler;
+  comingSoon: Handler;
   recentMatches: RecentMatch[];
 
   // live companion

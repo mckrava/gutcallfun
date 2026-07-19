@@ -1,3 +1,7 @@
+// Load .env into process.env BEFORE AppModule is imported, so app.module.ts's
+// conditional DevModule mount can read ENABLE_DEV_SIM from the file (@nestjs/config
+// only loads .env later, at bootstrap — too late for a module-eval-time check).
+import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';

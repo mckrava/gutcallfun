@@ -23,4 +23,10 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   image?: string;
+
+  @ApiPropertyOptional({ example: '🐼' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(8)
+  emoji?: string;
 }

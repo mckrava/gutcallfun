@@ -14,6 +14,9 @@ export class LeaderboardEntryDto {
   @ApiProperty({ example: 'goal_hunter_42' })
   handle: string;
 
+  @ApiProperty({ example: '🦊', nullable: true, description: 'Persisted avatar emoji.' })
+  emoji: string | null;
+
   @ApiPropertyOptional({
     nullable: true,
     example: 'https://example.com/avatars/42.png',
