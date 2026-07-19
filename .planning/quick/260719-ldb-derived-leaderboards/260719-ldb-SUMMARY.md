@@ -262,6 +262,38 @@ the same squad being a no-op. Two invariants pinned alongside: exactly one
 `user_game` row throughout, and `games_played` counted once (the re-join path
 must not re-increment it).
 
+## Follow-up 4: squad pick lost on refresh (server state the UI could not read)
+
+Reported after deploying to a remote server: picking a squad persisted to
+`user_game.squad_id` and showed correctly, but a page refresh showed no squad
+even though the DB row was right.
+
+**The DB was correct; the UI simply never asked.** `matchSquadId` lives in a
+module-level client store that resets on every page load, and no endpoint
+exposed the caller's own `user_game` row — `GET /games/:id/participants` returns
+`user_id/handle/emoji/image/joined_at` with no `squad_id`. So the selection was
+write-only from the client's perspective.
+
+This is the gap left open when follow-up 3 made the pick persist: it fixed the
+write path without adding the corresponding read.
+
+**New `GET /games/:game_id/me`** returns `{ joined, user_game }` for the caller.
+An envelope rather than a bare row or a 404: not-joined is a normal state on
+every page load, and modelling it as an error means console noise and a
+react-query retry for every unjoined visitor.
+
+`RealDataBridge` hydrates `matchSquadId` from it, but **only into an empty
+slot** — a pick made during the session always wins over a stale server read.
+`SquadModal` invalidates the `/me` key after a successful pick so the next load
+restores the new squad rather than the previous one.
+
+**Verified: 6/6 against real Postgres** — not-joined, joined-solo, the refresh
+case itself, caller scoping (another user's participation is not leaked), and a
+404 for an unknown game.
+
+Also corrected a comment in `RealDataBridge` that still claimed a later squad
+pick could not backfill the join — untrue since follow-up 3.
+
 ## Open / deliberately not done
 
 1. **`applyResolutionPoints` now has no readers.** Decide whether to delete the

@@ -14,6 +14,7 @@ import type {
   JoinGameBody,
   LeaderboardEntry,
   LeaderboardQuery,
+  MyGameParticipation,
   ListAnswersQuery,
   ListGameEventsQuery,
   ListQuestionsQuery,
@@ -54,6 +55,8 @@ export const gamesApi = {
     http.get<SeqPage<GameEvent>>(`/games/${gameId}/events`, query),
   questions: (gameId: number, query?: ListQuestionsQuery) =>
     http.get<Question[]>(`/games/${gameId}/questions`, query),
+  myParticipation: (gameId: number) =>
+    http.get<MyGameParticipation>(`/games/${gameId}/me`),
   participants: (gameId: number, query?: PaginationQuery) =>
     http.get<Paginated<GameParticipant>>(`/games/${gameId}/participants`, query),
   join: (gameId: number, body: JoinGameBody) => http.post<UserGame>(`/games/${gameId}/join`, body),

@@ -10,6 +10,7 @@ export const queryKeys = {
     events: (gameId: number, query?: ListGameEventsQuery) => ["games", gameId, "events", query ?? {}] as const,
     questions: (gameId: number, query?: ListQuestionsQuery) => ["games", gameId, "questions", query ?? {}] as const,
     participants: (gameId: number) => ["games", gameId, "participants"] as const,
+    me: (gameId: number) => ["games", gameId, "me"] as const,
   },
   users: {
     all: ["users"] as const,

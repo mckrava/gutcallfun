@@ -20,6 +20,7 @@ import { ListQuestionsQueryDto } from './dto/list-questions-query.dto';
 import { QuestionOptionResponseDto } from './dto/question-option-response.dto';
 import { QuestionResponseDto } from './dto/question-response.dto';
 import { UserGameResponseDto } from './dto/user-game-response.dto';
+import { MyGameParticipationResponseDto } from './dto/my-game-participation-response.dto';
 import { ScoreProfileService } from '../../scoring/score-profile.service';
 
 function pgErrorOf(err: unknown): { code?: string; constraint?: string } {
@@ -260,6 +261,28 @@ export class GamesService {
     }
 
     return this.toUserGameDto(row);
+  }
+
+  /**
+   * The caller's own participation, including which squad they are playing this
+   * game for. The UI reads this on load to restore the squad selection —
+   * `user_game.squad_id` is server state, and holding it only in a client store
+   * meant a refresh appeared to lose a choice that was in fact persisted.
+   *
+   * Not-joined is a normal 200 with `joined: false`, not a 404.
+   */
+  async findMyParticipation(
+    gameId: number,
+    userId: string,
+  ): Promise<MyGameParticipationResponseDto> {
+    await this.findGameOrThrow(gameId);
+    const row = await this.userGamesRepo.findOne({
+      where: { gameId, userId },
+    });
+    return {
+      joined: row !== null,
+      user_game: row ? this.toUserGameDto(row) : null,
+    };
   }
 
   // Users who have joined this game (for the "who's in" live-hero strip),

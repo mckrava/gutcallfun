@@ -224,6 +224,16 @@ export interface CreateAnswerBody {
   selected_option_id: string;
 }
 
+/**
+ * GET /games/:id/me — the caller's own participation, including which squad
+ * they are playing this game for. `user_game.squad_id` is server state; the UI
+ * reads it back on load to restore the squad pick after a refresh.
+ */
+export interface MyGameParticipation {
+  joined: boolean;
+  user_game: UserGame | null;
+}
+
 export interface JoinGameBody {
   squad_id?: number;
 }

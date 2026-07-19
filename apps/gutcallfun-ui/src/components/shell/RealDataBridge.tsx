@@ -2,7 +2,7 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCurrentUser, useGameParticipants, useGames, useJoinGame, useLeaderboard } from "@/services/api/hooks";
+import { useCurrentUser, useGameParticipants, useGames, useJoinGame, useLeaderboard, useMyGameParticipation } from "@/services/api/hooks";
 import { queryKeys } from "@/services/api/queryKeys";
 import { useAppActions } from "@/state/context";
 import { adaptGames } from "@/services/adapters/matches";
@@ -37,6 +37,23 @@ export function RealDataBridge() {
     setRealData({ liveGameId: liveGame?.id ?? null });
   }, [liveGame?.id]);
 
+  // Restore the squad pick from the server on load.
+  //
+  // matchSquadId lives in a module-level store that resets on every page load,
+  // and nothing used to read user_game.squad_id back — so a refresh appeared to
+  // lose a squad selection that was in fact persisted correctly. Only fills a
+  // slot that is still empty, so a pick made during this session always wins
+  // over a stale server read.
+  const myParticipation = useMyGameParticipation(liveGame?.id ?? null, {
+    enabled: !!me.data?.id,
+  });
+  const serverSquadId = myParticipation.data?.user_game?.squad_id ?? null;
+  useEffect(() => {
+    if (serverSquadId == null) return;
+    if (getRealData().matchSquadId != null) return;
+    setRealData({ matchSquadId: serverSquadId });
+  }, [serverSquadId]);
+
   useEffect(() => {
     if (!games.data) return;
     // All three match sections + the live hero's "who's in" strip.
@@ -45,13 +62,12 @@ export function RealDataBridge() {
       onEnterLive: (game) => {
         // Entering a live game joins it, so the caller shows up in "who's in".
         //
-        // squad_id MUST be sent: the backend records it on user_game and every
-        // squad-scoped leaderboard is derived from that column. Joining with
-        // {} makes the user a solo participant permanently for this game — the
-        // row is written once and join is idempotent, so a later squad pick
-        // does NOT backfill it, and they simply never appear on their squad's
-        // board for this match. Omit the key entirely when no squad is picked;
-        // sending squad_id: null would be rejected by the DTO validator.
+        // squad_id is sent when one is already known: the backend records it on
+        // user_game and every squad-scoped leaderboard derives from that column.
+        // Omit the key entirely when no squad is picked — sending
+        // squad_id: null would be rejected by the DTO validator, and an omitted
+        // squad_id never clears an association the server already holds.
+        // Picking a squad later re-joins and updates the row (see SquadModal).
         joinGame.mutate(
           matchSquadId != null ? { squad_id: matchSquadId } : {},
           { onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.games.participants(game.id) }) },

@@ -30,6 +30,7 @@ import { ListGamesQueryDto } from './dto/list-games-query.dto';
 import { ListQuestionsQueryDto } from './dto/list-questions-query.dto';
 import { QuestionResponseDto } from './dto/question-response.dto';
 import { UserGameResponseDto } from './dto/user-game-response.dto';
+import { MyGameParticipationResponseDto } from './dto/my-game-participation-response.dto';
 import { GamesService } from './games.service';
 
 @ApiTags('games')
@@ -93,6 +94,19 @@ export class GamesController {
     @Query() query: PaginationQueryDto,
   ): Promise<PaginatedGameParticipantsResponseDto> {
     return this.gamesService.findParticipants(gameId, query);
+  }
+
+  @Get(':game_id/me')
+  @ApiBearerAuth()
+  @ApiOkResponse({ type: MyGameParticipationResponseDto })
+  @ApiNotFoundResponse({
+    description: 'No game exists with the given game_id.',
+  })
+  findMyParticipation(
+    @Param('game_id', ParseIntPipe) gameId: number,
+    @CurrentUser() user: AuthPrincipal,
+  ): Promise<MyGameParticipationResponseDto> {
+    return this.gamesService.findMyParticipation(gameId, user.userId);
   }
 
   @Post(':game_id/join')

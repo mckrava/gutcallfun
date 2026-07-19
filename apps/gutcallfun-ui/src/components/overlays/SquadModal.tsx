@@ -61,6 +61,8 @@ export function SquadModal() {
           setRealData({ matchSquadId: row.squad_id });
           void qc.invalidateQueries({ queryKey: queryKeys.leaderboardAll });
           void qc.invalidateQueries({ queryKey: queryKeys.games.participants(liveGameId) });
+          // The /me read is what restores this pick on the next page load.
+          void qc.invalidateQueries({ queryKey: queryKeys.games.me(liveGameId) });
         },
       },
     );

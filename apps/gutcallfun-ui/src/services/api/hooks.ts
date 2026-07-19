@@ -50,6 +50,15 @@ export function useGameParticipants(gameId: number | null) {
     enabled: gameId != null,
   });
 }
+// The caller's own user_game row. `enabled` gates on both a game and an
+// authenticated session — unauthenticated it is a guaranteed 401.
+export function useMyGameParticipation(gameId: number | null, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: queryKeys.games.me(gameId ?? -1),
+    queryFn: () => gamesApi.myParticipation(gameId as number),
+    enabled: gameId != null && (options?.enabled ?? true),
+  });
+}
 export function useJoinGame(gameId: number) {
   const qc = useQueryClient();
   return useMutation({
