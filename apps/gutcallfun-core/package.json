@@ -25,7 +25,8 @@
     "seed:matches": "tsx scripts/seed-matches.ts",
     "seed:profiles": "tsx scripts/seed-profiles.ts",
     "seed:fake-leaderboard": "tsx scripts/seed-fake-leaderboard.ts",
-    "proof:recap": "tsx scripts/proof-recap.ts"
+    "proof:recap": "tsx scripts/proof-recap.ts",
+    "proof:window-escalation": "tsx scripts/proof-window-escalation.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

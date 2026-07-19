@@ -43,11 +43,17 @@ export class QuestionWindowService {
    *   window (WNDW-01: `trigger_event_id` FKs the event log). Null when the
    *   triggering insert was an orIgnore no-op.
    * @param participant The attacking team (1 | 2) from the feed message.
+   * @param seedRung The resolution high-water floor to seed (260719-m7e,
+   *   LD-2), derived from the stage that triggered this open via
+   *   `seedRungForStage`. Defaults to `'fizzles'` — load-bearing for the
+   *   `maybeOpenFallback` caller (LD-5), which passes no stage and must keep
+   *   seeding the unchanged floor.
    */
   async open(
     gameId: number,
     triggerEventId: string | null,
     participant: number | null,
+    seedRung: Extract<Rung, 'fizzles' | 'danger'> = 'fizzles',
   ): Promise<void> {
     const openedAtWall = Date.now();
     // STAT-03: `expires_at` is the answer lock and is measured on the SERVER
@@ -123,7 +129,7 @@ export class QuestionWindowService {
           baseGain: option.baseGain,
           displayOrder: option.displayOrder,
         })),
-        possessionRung: 'fizzles',
+        possessionRung: seedRung,
         shotActionIds: new Set<number>(),
         goalSightings: new Map(),
         resolutionEventId: null,
