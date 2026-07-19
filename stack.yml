@@ -56,8 +56,8 @@ version: '3.7'
 # ======================================================================================================================
 
 # SHA-pinned GHCR refs — replace sha-PLACEHOLDER with the published tag before deploying.
-x-core-image: &core-image 'ghcr.io/mckrava/gutcallfun-core:sha-PLACEHOLDER'
-x-ui-image: &ui-image 'ghcr.io/mckrava/gutcallfun-ui:sha-PLACEHOLDER'
+x-core-image: &core-image 'ghcr.io/mckrava/gutcallfun-core:sha-3cdea03'
+x-ui-image: &ui-image 'ghcr.io/mckrava/gutcallfun-ui:sha-3cdea03'
 
 # The backend takes ONE DATABASE_URL, not discrete DB_* parts, so the password cannot be injected as a
 # plain env var — it is read from the secret file and interpolated into the URL by the command wrapper
@@ -142,6 +142,8 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+    ports:
+      - '18002:5432'
     networks:
       - default
     logging:
@@ -207,6 +209,8 @@ services:
       PAST_FIXTURES_COUNT: '20'
       # ENABLE_DEV_SIM is deliberately ABSENT. DevModule (POST /dev/live/*) mounts only when it is
       # exactly "true", so leaving it unset keeps those routes non-existent. Never set it here.
+#      REPLAY_MAX_GAP_MS: '1000'    # cap dead air at 1s instead of 5s
+#      REPLAY_SPEED: '600'            # and compress the short in-play gaps too
     # Secrets are files, so they are exported into the environment before the app starts; only this
     # wrapper ever sees the values, and they never appear in `docker service inspect`.
     command:
@@ -268,11 +272,11 @@ services:
         traefik.enable: 'true'
         traefik.docker.network: gateway
         traefik.http.services.gutcall-prev-gutcall-prev-ui.loadbalancer.server.port: '3000'
-        traefik.http.routers.gutcall-prev-ui-http.rule: Host(`preview.gutcall.fun`)
+        traefik.http.routers.gutcall-prev-ui-http.rule: Host(`app.gutcall.fun`)
         traefik.http.routers.gutcall-prev-ui-http.service: gutcall-prev-gutcall-prev-ui
         traefik.http.routers.gutcall-prev-ui-http.entrypoints: web
         traefik.http.routers.gutcall-prev-ui-http.middlewares: https-redirect
-        traefik.http.routers.gutcall-prev-ui.rule: Host(`preview.gutcall.fun`)
+        traefik.http.routers.gutcall-prev-ui.rule: Host(`app.gutcall.fun`)
         traefik.http.routers.gutcall-prev-ui.service: gutcall-prev-gutcall-prev-ui
         traefik.http.routers.gutcall-prev-ui.entrypoints: websecure
         traefik.http.routers.gutcall-prev-ui.tls: 'true'
