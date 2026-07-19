@@ -1,0 +1,280 @@
+# ======================================================================================================================
+# ================================== G U T C A L L   ( gutcall.fun ) ===================================================
+# ================================== D O C K E R   S W A R M   P R E V I E W   S T A C K ===============================
+# ======================================================================================================================
+#
+# Deploy target: Swarmpit on the shared Swarm host. Paste/point Swarmpit at this file.
+#
+# All services carry the gutcall-prev- prefix (instance-unique service names on a shared Swarm host);
+# internal DNS references use the SAME prefixed names.
+#
+#   gutcall-prev-db       postgres:16, POSTGRES_PASSWORD_FILE (external secret), named volume.
+#   gutcall-prev-migrate  one-shot TypeORM `migration:run`; restart_policy on-failure (retries until
+#                         the DB is reachable; Swarm never restarts a task that exited 0).
+#   gutcall-prev-core     NestJS API + socket.io + TxLINE SSE ingest. Traefik-routed at api.gutcall.fun.
+#   gutcall-prev-ui       Next.js standalone UI. Traefik-routed at preview.gutcall.fun.
+#
+# --------------------------------------------------------------------------------------------------
+# WHY THE BACKEND IS EDGE-EXPOSED (it is not optional)
+# --------------------------------------------------------------------------------------------------
+# The browser opens socket.io against the backend DIRECTLY: Next.js cannot proxy a WebSocket upgrade,
+# so the UI's server-side BFF handles REST only. That forces TWO public hostnames — the API cannot be
+# internal-only the way a pure REST backend could be.
+#
+#   preview.gutcall.fun  -> gutcall-prev-ui    (HTML/BFF; proxies REST server-side over internal DNS)
+#   api.gutcall.fun      -> gutcall-prev-core  (socket.io from the browser + REST from the BFF)
+#
+# --------------------------------------------------------------------------------------------------
+# BEFORE FIRST DEPLOY
+# --------------------------------------------------------------------------------------------------
+# 1. Set both image tags below to a real CI-published `sha-<short>` (see docker-images-build-publish.yml).
+#    Both are SHA-pinned deliberately — no floating tags, so redeploys are explicit.
+#
+# 2. Create these FOUR external secrets in Swarmpit (names only are committed, never values):
+#      GUTCALL_PREVIEW_PG_PASSWORD        Postgres password for the gutcallfun role
+#      GUTCALL_PREVIEW_TXLINE_GUEST_JWT   TxLINE guest JWT
+#      GUTCALL_PREVIEW_TXLINE_API_TOKEN   TxLINE API token
+#      GUTCALL_PREVIEW_JWT_ACCESS_SECRET  app session-JWT signing key — MUST be >= 32 chars or boot fails
+#
+# 3. DNS: point preview.gutcall.fun AND api.gutcall.fun at the Swarm host.
+#
+# 4. The UI image has https://api.gutcall.fun BAKED IN at build time (NEXT_PUBLIC_WS_URL). Changing the
+#    API host means rebuilding the UI image — editing this file alone will NOT move the socket target.
+#
+# --------------------------------------------------------------------------------------------------
+# CONVERGENCE
+# --------------------------------------------------------------------------------------------------
+# Swarm IGNORES depends_on conditions (no service_healthy / service_completed_successfully). On a fresh
+# deploy, migrate and core will crash-loop against a not-yet-initialised Postgres and self-heal via
+# restart_policy: on-failure. Initial connection-refused errors in the logs are EXPECTED, not a fault.
+# ======================================================================================================================
+
+version: '3.7'
+
+# ======================================================================================================================
+# =============================================== V A R I A B L E S ====================================================
+# ======================================================================================================================
+
+# SHA-pinned GHCR refs — replace sha-PLACEHOLDER with the published tag before deploying.
+x-core-image: &core-image 'ghcr.io/mckrava/gutcallfun-core:sha-PLACEHOLDER'
+x-ui-image: &ui-image 'ghcr.io/mckrava/gutcallfun-ui:sha-PLACEHOLDER'
+
+# The backend takes ONE DATABASE_URL, not discrete DB_* parts, so the password cannot be injected as a
+# plain env var — it is read from the secret file and interpolated into the URL by the command wrapper
+# on each service. `$$` escapes compose interpolation so the shell in the container expands it.
+x-db-conn: &db-conn
+  DB_HOST: gutcall-prev-db
+  DB_PORT: '5432'
+  DB_NAME: gutcallfun
+  DB_USER: gutcallfun
+
+x-long-running-restart: &long-running-restart
+  restart_policy:
+    condition: on-failure
+    delay: 20s
+    max_attempts: 20
+    window: 300s
+
+# ======================================================================================================================
+# ============================================ S T A C K   C O N F I G =================================================
+# ======================================================================================================================
+
+networks:
+  default:
+    driver: overlay
+  gateway:
+    external: true
+
+volumes:
+  gutcall-prev-pgdata:
+    driver: local
+
+secrets:
+  GUTCALL_PREVIEW_PG_PASSWORD:
+    external: true
+  GUTCALL_PREVIEW_TXLINE_GUEST_JWT:
+    external: true
+  GUTCALL_PREVIEW_TXLINE_API_TOKEN:
+    external: true
+  GUTCALL_PREVIEW_JWT_ACCESS_SECRET:
+    external: true
+
+services:
+  # ------------------------------------------------ P O S T G R E S ----------------------------------------------------
+  gutcall-prev-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: gutcallfun
+      POSTGRES_USER: gutcallfun
+      POSTGRES_PASSWORD_FILE: /run/secrets/GUTCALL_PREVIEW_PG_PASSWORD
+    secrets:
+      - GUTCALL_PREVIEW_PG_PASSWORD
+    volumes:
+      - 'gutcall-prev-pgdata:/var/lib/postgresql/data'
+      - type: tmpfs
+        target: /dev/shm
+        tmpfs:
+          size: 1073741824
+    # Modest tuning — this workload is an append-only event log plus small
+    # per-game reads, not the analytical sweeps the reference stack was sized for.
+    command:
+      - 'postgres'
+      - '-c'
+      - 'shared_buffers=512MB'
+      - '-c'
+      - 'effective_cache_size=1536MB'
+      - '-c'
+      - 'work_mem=16MB'
+      - '-c'
+      - 'maintenance_work_mem=256MB'
+      - '-c'
+      - 'max_connections=100'
+      - '-c'
+      - 'checkpoint_completion_target=0.9'
+      - '-c'
+      - 'wal_compression=on'
+      - '-c'
+      - 'log_min_duration_statement=5000'
+      - '-c'
+      - 'log_statement=ddl'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U gutcallfun -d gutcallfun']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - default
+    logging:
+      driver: json-file
+    deploy:
+      resources:
+        limits:
+          memory: 3G
+        reservations:
+          memory: 512M
+      restart_policy:
+        condition: on-failure
+
+  # ----------------------------------------------- M I G R A T E (one-shot) --------------------------------------------
+  # Runs the compiled TypeORM migrations, then exits 0 and stays "Complete 0/1".
+  # The image's WORKDIR is /repo/apps/gutcallfun-core, so the relative path below resolves. Note the
+  # dist/src/ prefix: tsconfig compiles scripts/ alongside src/, which widens rootDir and nests the
+  # output one level deeper than the usual `dist/`. The typeorm CLI survives --omit=dev because
+  # typeorm is a runtime dependency.
+  gutcall-prev-migrate:
+    image: *core-image
+    secrets:
+      - GUTCALL_PREVIEW_PG_PASSWORD
+    environment:
+      <<: *db-conn
+      NODE_ENV: production
+    command:
+      - sh
+      - -c
+      - |
+        export DATABASE_URL="postgresql://gutcallfun:$$(cat /run/secrets/GUTCALL_PREVIEW_PG_PASSWORD)@gutcall-prev-db:5432/gutcallfun" &&
+        node /repo/node_modules/typeorm/cli.js migration:run -d dist/src/db/data-source.js
+    networks:
+      - default
+    logging:
+      driver: json-file
+    deploy:
+      # on-failure (NOT none): on a fresh deploy this races Postgres first-init, and Swarm never
+      # restarts a task that exited 0 — so the one-shot contract still holds.
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+
+  # ------------------------------------------------- C O R E  (API + WS) -----------------------------------------------
+  gutcall-prev-core:
+    image: *core-image
+    secrets:
+      - GUTCALL_PREVIEW_PG_PASSWORD
+      - GUTCALL_PREVIEW_TXLINE_GUEST_JWT
+      - GUTCALL_PREVIEW_TXLINE_API_TOKEN
+      - GUTCALL_PREVIEW_JWT_ACCESS_SECRET
+    environment:
+      <<: *db-conn
+      NODE_ENV: production
+      PORT: '3000'
+      # Config validation HARD-FAILS unless this is exactly 12: SL=1 silently delays the feed ~60s,
+      # which would break the live prediction-window premise. Do not "fix" a boot error by changing it.
+      SERVICE_LEVEL_ID: '12'
+      # Public origin of the UI — used for CORS/auth context.
+      WEB_APP_ORIGIN: 'https://preview.gutcall.fun'
+      # Bound into the SIWS sign-in message (anti-phishing); host only, no scheme.
+      AUTH_DOMAIN: 'preview.gutcall.fun'
+      PAST_FIXTURES_COUNT: '20'
+      # ENABLE_DEV_SIM is deliberately ABSENT. DevModule (POST /dev/live/*) mounts only when it is
+      # exactly "true", so leaving it unset keeps those routes non-existent. Never set it here.
+    # Secrets are files, so they are exported into the environment before the app starts; only this
+    # wrapper ever sees the values, and they never appear in `docker service inspect`.
+    command:
+      - sh
+      - -c
+      - |
+        export DATABASE_URL="postgresql://gutcallfun:$$(cat /run/secrets/GUTCALL_PREVIEW_PG_PASSWORD)@gutcall-prev-db:5432/gutcallfun" &&
+        export TXLINE_GUEST_JWT=$$(cat /run/secrets/GUTCALL_PREVIEW_TXLINE_GUEST_JWT) &&
+        export TXLINE_API_TOKEN=$$(cat /run/secrets/GUTCALL_PREVIEW_TXLINE_API_TOKEN) &&
+        export JWT_ACCESS_SECRET=$$(cat /run/secrets/GUTCALL_PREVIEW_JWT_ACCESS_SECRET) &&
+        node dist/src/main
+    networks:
+      - default
+      - gateway
+    logging:
+      driver: json-file
+    deploy:
+      # EXACTLY ONE REPLICA, NON-NEGOTIABLE: the TxLINE SSE ingest must run in a single long-lived
+      # process. A second replica would open a duplicate upstream stream and double-write the
+      # append-only event log. Do not scale this service.
+      replicas: 1
+      labels:
+        traefik.enable: 'true'
+        traefik.docker.network: gateway
+        traefik.http.services.gutcall-prev-gutcall-prev-core.loadbalancer.server.port: '3000'
+        traefik.http.routers.gutcall-prev-core-http.rule: Host(`api.gutcall.fun`)
+        traefik.http.routers.gutcall-prev-core-http.service: gutcall-prev-gutcall-prev-core
+        traefik.http.routers.gutcall-prev-core-http.entrypoints: web
+        traefik.http.routers.gutcall-prev-core-http.middlewares: https-redirect
+        traefik.http.routers.gutcall-prev-core.rule: Host(`api.gutcall.fun`)
+        traefik.http.routers.gutcall-prev-core.service: gutcall-prev-gutcall-prev-core
+        traefik.http.routers.gutcall-prev-core.entrypoints: websecure
+        traefik.http.routers.gutcall-prev-core.tls: 'true'
+        traefik.http.routers.gutcall-prev-core.tls.certresolver: myresolver
+      <<: *long-running-restart
+
+  # ----------------------------------------------------- U I -----------------------------------------------------------
+  gutcall-prev-ui:
+    image: *ui-image
+    # No secret: the UI holds no DB credential and no TxLINE token.
+    environment:
+      # SERVER-SIDE ONLY. The BFF route handlers proxy REST to the backend over internal overlay DNS,
+      # attaching the session JWT there so it never reaches the browser. Internal, so plain http.
+      API_URL: 'http://gutcall-prev-core:3000'
+      # Must be 0.0.0.0 (not localhost) or Traefik cannot reach the container.
+      HOSTNAME: '0.0.0.0'
+      PORT: '3000'
+      NODE_ENV: production
+      # Runtime parity only — the client bundle already has this value COMPILED IN from the image
+      # build arg. Setting it here does NOT change what the browser uses.
+      NEXT_PUBLIC_WS_URL: 'https://api.gutcall.fun'
+    networks:
+      - default
+      - gateway
+    logging:
+      driver: json-file
+    deploy:
+      labels:
+        traefik.enable: 'true'
+        traefik.docker.network: gateway
+        traefik.http.services.gutcall-prev-gutcall-prev-ui.loadbalancer.server.port: '3000'
+        traefik.http.routers.gutcall-prev-ui-http.rule: Host(`preview.gutcall.fun`)
+        traefik.http.routers.gutcall-prev-ui-http.service: gutcall-prev-gutcall-prev-ui
+        traefik.http.routers.gutcall-prev-ui-http.entrypoints: web
+        traefik.http.routers.gutcall-prev-ui-http.middlewares: https-redirect
+        traefik.http.routers.gutcall-prev-ui.rule: Host(`preview.gutcall.fun`)
+        traefik.http.routers.gutcall-prev-ui.service: gutcall-prev-gutcall-prev-ui
+        traefik.http.routers.gutcall-prev-ui.entrypoints: websecure
+        traefik.http.routers.gutcall-prev-ui.tls: 'true'
+        traefik.http.routers.gutcall-prev-ui.tls.certresolver: myresolver
+      <<: *long-running-restart

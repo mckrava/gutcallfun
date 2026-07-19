@@ -1,0 +1,48 @@
+# Both images build from the REPO ROOT as context (the npm-workspaces lockfile
+# lives here), so this file is what keeps that context small and — more
+# importantly — keeps secrets out of the layers.
+
+# ---- SECURITY: never let an env file enter the build context ----------------
+# apps/gutcallfun-core/.env holds the live TxODDS JWT + API token. A COPY of an
+# app directory would otherwise bake them into an image that gets pushed to a
+# public registry. Runtime config arrives via Swarm env/secrets instead.
+.env
+.env.*
+**/.env
+**/.env.*
+
+# ---- Build/install output (regenerated inside the image) --------------------
+node_modules
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+**/coverage
+
+# ---- Repo material with no place in a runtime image -------------------------
+.git
+.gitignore
+.github
+.planning
+.claude
+docs
+initial-request-src
+
+# Design-tool scratch: a second, broken Next app nested inside the UI. Excluded
+# from tsconfig too — it must never reach a build.
+**/claude-design-output
+
+# Local-only harness, deliberately uncommitted.
+apps/gutcallfun-test-ui
+
+# ---- Deploy descriptors (consumed by Swarm/CI, not by the image) ------------
+dev-stack.yml
+docker-compose.yml
+Dockerfile
+**/Dockerfile
+
+# ---- Noise ------------------------------------------------------------------
+**/*.log
+**/.DS_Store
+**/*.md
+!apps/*/README.md
