@@ -8,6 +8,7 @@ import { LiveFeedMessage } from './events/live-feed.event';
 import { LiveWindowRegistry, OpenWindow } from './live-window.registry';
 import { QuestionWindowService } from './question-window.service';
 import { toGameEventMessageDto } from './live-payload.mapper';
+import { isAscendingAttackEdge, seedRungForStage } from './live-trigger';
 import {
   IN_PLAY_STATUS_IDS,
   OPEN_COOLDOWN_MS,
@@ -220,35 +221,36 @@ export class LiveEngineService implements OnModuleInit {
         possession.stage,
       );
 
-      // The trigger is the EDGE into attack_possession, not the level. Note
+      // The trigger is the EDGE into an attacking stage, not the level. Note
       // that GameState.possessionStage has already been advanced to the
       // current stage by the state machine before this hook runs, which is why
       // the prior stage is tracked separately in the registry.
       //
-      // ASCENDING EDGES ONLY — deliberate narrowing of WNDW-01, decided from
-      // live data during the 2026-07-18 France–England match (see below).
+      // ASCENDING EDGES INTO ANY ATTACKING STAGE (attack/danger/high_danger) —
+      // broadened WNDW-01 gate (quick task 260719-m7e, LD-1). Originally
+      // narrowed to strictly `safe -> attack` from live data during the
+      // 2026-07-18 France–England match: WNDW-01 says a window opens when
+      // possession "first enters attack_possession", which reads naturally as
+      // an attack building UP out of safe play, but the feed also produces the
+      // opposite — an attack winding DOWN passes back through
+      // attack_possession on its way to safe (measured 9 fading-attack windows
+      // in the first half, 16/22 outcomes `fizzles`). That narrowing also had a
+      // side effect: a sustained attacking passage that oscillates
+      // attack<->danger<->high_danger WITHOUT dropping back to `safe`
+      // self-suppressed after its first window, because every later escalation
+      // read as a same-or-lower step relative to a prior stage that was never
+      // `safe`. `isAscendingAttackEdge` fixes both at once by comparing ranks
+      // (safe < attack < danger < high_danger) rather than testing for the
+      // single `safe`/`null` prior: it fires on any ascending step into an
+      // attacking stage — including attack->danger and danger->high_danger —
+      // and still never fires on a flat repeat or a descent. Density during a
+      // sustained escalation is capped by the unchanged cooldown/one-open-per-
+      // game guards below (LD-4), not by the trigger condition itself.
       //
-      // WNDW-01 says a window opens when possession "first enters
-      // attack_possession", which reads naturally as an attack building UP out
-      // of safe play. The real feed also produces the opposite: an attack that
-      // is winding DOWN passes back through attack_possession on its way to
-      // safe. Measured over the first half: 6 `high_danger -> attack` and 3
-      // `danger -> attack` transitions — 9 windows opened on attacks that had
-      // already peaked and were fading. Those can essentially only resolve
-      // `fizzles` (their danger is behind them, not ahead), and 16 of the
-      // first 22 outcomes were indeed `fizzles`.
-      //
-      // Requiring the prior stage to be `safe` (or null, at match start) means
-      // one window per attack RUN, opened as the run begins. `prior === null`
-      // must be included or the very first attack of a match never triggers.
-      //
-      // Known trade-off: a run that peaks, drops to attack, then climbs again
-      // without passing through safe now yields one window instead of two.
-      // That is the intended reading — it is one attacking passage.
-      if (
-        possession.stage === 'attack' &&
-        (prior === null || prior === 'safe')
-      ) {
+      // `prior === null` (first contact, at match start) is folded into the
+      // rank comparison as rank -1, so the very first attack of a match still
+      // triggers.
+      if (isAscendingAttackEdge(prior, possession.stage)) {
         if (
           this.registry.msSinceLastOpen(message.gameId, now) < OPEN_COOLDOWN_MS
         ) {
@@ -261,6 +263,7 @@ export class LiveEngineService implements OnModuleInit {
           message.gameId,
           message.eventId,
           possession.participant,
+          seedRungForStage(possession.stage),
         );
         return;
       }
