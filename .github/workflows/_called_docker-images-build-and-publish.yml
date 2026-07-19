@@ -1,0 +1,79 @@
+# Reusable build-and-publish workflow (DEP-02 / D-02 / D-07).
+#
+# Builds ONE container image from the repo-root context and pushes it to GHCR,
+# tagged SHA-pinned ONLY (`type=sha` => `sha-<short>`). The caller invokes this
+# once per image (aggregator + dashboard) — see docker-images-build-publish.yml.
+#
+# Improvement over the Hydration reference: instead of raw `github.sha` plus
+# mutable branch/floating tags, we use docker/metadata-action `type=sha`
+# exclusively. No floating tags, no branch tag — deploys pin to immutable
+# `sha-<short>` refs (DEP-02 mandate, threat T-09-07).
+name: _called-docker-images-build-and-publish
+
+on:
+  workflow_call:
+    inputs:
+      image:
+        description: 'GHCR image ref (e.g. ghcr.io/mckrava/gutcallfun-core)'
+        required: true
+        type: string
+      dockerfile:
+        description: 'Path to the Dockerfile, relative to the repo root'
+        required: true
+        type: string
+      build_args:
+        description: |
+          Newline-separated KEY=value build args.
+          Required for the UI image: Next.js inlines NEXT_PUBLIC_* into the
+          client bundle at BUILD time, so those values cannot be injected at
+          deploy time and must be baked here. Never pass a secret through this
+          input — build args are recoverable from image history.
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    # Least privilege for GHCR push via the runner-injected GITHUB_TOKEN
+    # (threat T-09-05): read the repo, write packages — nothing more.
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout (repo-root build context)
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Derive image metadata (SHA-pinned only)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ inputs.image }}
+          # SHA-only: yields `sha-<short>` (priority 100). No branch-ref tag,
+          # no floating/raw tag, no flavor-driven floating tag. DEP-02.
+          tags: |
+            type=sha
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          # Repo root: both Dockerfiles need the npm-workspaces lockfile.
+          context: .
+          file: ${{ inputs.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: ${{ inputs.build_args }}
+          # Layer cache across runs — npm ci dominates build time otherwise.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

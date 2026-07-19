@@ -1,0 +1,55 @@
+# Caller workflow — builds BOTH GutCall images and pushes them to GHCR,
+# SHA-pinned (`type=sha` => `sha-<short>`), one reusable-workflow call per image:
+#   - ghcr.io/mckrava/gutcallfun-core  (NestJS API + socket.io + TxLINE ingest)
+#   - ghcr.io/mckrava/gutcallfun-ui    (Next.js standalone UI)
+#
+# The `dev-stack.yml` Swarm stack pins both by those `sha-<short>` tags — no
+# floating tags, so a redeploy is always an explicit, auditable ref change.
+# Org `mckrava` is committed literally.
+name: docker-images-build-publish
+
+on:
+  push:
+    branches:
+      # `main` is the eventual production target; `develop` is the active
+      # working branch and the one that feeds the preview.gutcall.fun deploy,
+      # so it must publish images too or there is nothing to pin.
+      - main
+      - develop
+  # Lets you rebuild a ref (e.g. after rotating the API host) without an
+  # empty commit.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-images:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: ghcr.io/mckrava/gutcallfun-core
+            dockerfile: apps/gutcallfun-core/Dockerfile
+            build_args: ''
+          - image: ghcr.io/mckrava/gutcallfun-ui
+            dockerfile: apps/gutcallfun-ui/Dockerfile
+            # BUILD-TIME, NOT DEPLOY-TIME. Next.js inlines NEXT_PUBLIC_* into
+            # the client bundle during `next build`, so the browser's socket.io
+            # target is fixed when the image is built. It must be the backend's
+            # PUBLIC origin — the browser connects to socket.io directly,
+            # because Next cannot proxy a WebSocket upgrade.
+            #
+            # Changing this URL requires a rebuild + a new SHA tag; editing the
+            # stack file alone will NOT change it.
+            build_args: |
+              NEXT_PUBLIC_WS_URL=https://api.gutcall.fun
+    uses: ./.github/workflows/_called_docker-images-build-and-publish.yml
+    permissions:
+      contents: read
+      packages: write
+    with:
+      image: ${{ matrix.image }}
+      dockerfile: ${{ matrix.dockerfile }}
+      build_args: ${{ matrix.build_args }}
