@@ -6,6 +6,7 @@ import {
   cookieOptions,
   createPendingReg,
   createSession,
+  sessionCookieOptions,
 } from "@/server/session";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       userId: data.user.id,
     });
     const res = NextResponse.json({ status: "authenticated", user: data.user });
-    res.cookies.set(SESSION_COOKIE, sid, cookieOptions);
+    res.cookies.set(SESSION_COOKIE, sid, sessionCookieOptions);
     return res;
   }
 

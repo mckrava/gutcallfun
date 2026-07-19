@@ -13,7 +13,7 @@ import { getRealData, setRealData, subscribeRealData } from "@/state/realData";
 // rows into the real-data store, which MatchController reads in renderVals().
 // Renders nothing — a pure data conduit; all shape-mapping lives in adapters.
 export function RealDataBridge() {
-  const { enterLive } = useAppActions();
+  const { enterLive, goPost } = useAppActions();
   const qc = useQueryClient();
   const me = useCurrentUser();
   const games = useGames({ limit: 100 });
@@ -82,6 +82,11 @@ export function RealDataBridge() {
         );
         enterLive();
       },
+      // Opens a specific finished game's recap (the "Your results" card).
+      // goPost sets AppState.screen/postGameId; MatchController's own route
+      // sync (routeForState -> navigate) does the actual router.push to
+      // /recap/[game_id] — this bridge never navigates directly.
+      onEnterPost: (game) => goPost(game.id),
     });
     setRealData({ laterMatches, pastMatches, liveHero });
     // `joinGame` is deliberately NOT a dependency: useMutation returns a new
@@ -90,7 +95,7 @@ export function RealDataBridge() {
     // MatchController update, which re-runs its route sync — the write storm
     // behind the `_rsc` navigation storm. The ref keeps the callback current
     // without tying the effect to that identity.
-  }, [games.data, participants.data, enterLive, qc, matchSquadId]);
+  }, [games.data, participants.data, enterLive, goPost, qc, matchSquadId]);
 
   useEffect(() => {
     if (!leaderboard.data) return;

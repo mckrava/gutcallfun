@@ -31,12 +31,17 @@ import { ListQuestionsQueryDto } from './dto/list-questions-query.dto';
 import { QuestionResponseDto } from './dto/question-response.dto';
 import { UserGameResponseDto } from './dto/user-game-response.dto';
 import { MyGameParticipationResponseDto } from './dto/my-game-participation-response.dto';
+import { RecapResponseDto } from './dto/recap-response.dto';
 import { GamesService } from './games.service';
+import { RecapService } from './recap.service';
 
 @ApiTags('games')
 @Controller('games')
 export class GamesController {
-  constructor(private readonly gamesService: GamesService) {}
+  constructor(
+    private readonly gamesService: GamesService,
+    private readonly recapService: RecapService,
+  ) {}
 
   @Public()
   @Get()
@@ -88,7 +93,9 @@ export class GamesController {
   @Public()
   @Get(':game_id/participants')
   @ApiOkResponse({ type: PaginatedGameParticipantsResponseDto })
-  @ApiNotFoundResponse({ description: 'No game exists with the given game_id.' })
+  @ApiNotFoundResponse({
+    description: 'No game exists with the given game_id.',
+  })
   findParticipants(
     @Param('game_id', ParseIntPipe) gameId: number,
     @Query() query: PaginationQueryDto,
@@ -107,6 +114,21 @@ export class GamesController {
     @CurrentUser() user: AuthPrincipal,
   ): Promise<MyGameParticipationResponseDto> {
     return this.gamesService.findMyParticipation(gameId, user.userId);
+  }
+
+  // Deliberately NOT @Public() — the response is caller-scoped (`me`, `ranks`)
+  // and userId comes only from the session, never from the path/query.
+  @Get(':game_id/recap')
+  @ApiBearerAuth()
+  @ApiOkResponse({ type: RecapResponseDto })
+  @ApiNotFoundResponse({
+    description: 'No game exists with the given game_id.',
+  })
+  findRecap(
+    @Param('game_id', ParseIntPipe) gameId: number,
+    @CurrentUser() user: AuthPrincipal,
+  ): Promise<RecapResponseDto> {
+    return this.recapService.getRecap(gameId, user.userId);
   }
 
   @Post(':game_id/join')

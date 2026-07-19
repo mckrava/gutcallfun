@@ -234,6 +234,87 @@ export interface MyGameParticipation {
   user_game: UserGame | null;
 }
 
+// ---------------------------------------------------------------------------
+// GET /games/:id/recap — the post-match EKG page, assembled entirely from
+// Postgres for a FINISHED game. Mirrors the backend's recap-response.dto.ts
+// field-for-field; `minute: number | null` wherever the backend allows null
+// (a call/goal whose trigger event carries no derivable minute).
+// ---------------------------------------------------------------------------
+
+export interface RecapGame {
+  id: number;
+  team1_name: string | null;
+  team2_name: string | null;
+  score_p1: number;
+  score_p2: number;
+  status: GameStatus;
+  team1_jersey_color: string | null;
+  team2_jersey_color: string | null;
+  participant1_is_home: boolean;
+  competition: string | null;
+}
+
+export interface RecapBestCall {
+  minute: number | null;
+  points: number;
+  content: string;
+}
+
+export interface RecapMe {
+  total_points: number;
+  answered: number;
+  resolved: number;
+  exact: number;
+  voided: number;
+  hit_rate: number;
+  best_call: RecapBestCall | null;
+  squad_id: number | null;
+  squad_name: string | null;
+}
+
+export interface RecapRank {
+  rank: number;
+  of: number;
+}
+
+export interface RecapRanks {
+  global: RecapRank | null;
+  game: RecapRank | null;
+  squad: RecapRank | null;
+}
+
+export interface RecapGoal {
+  minute: number | null;
+  participant: number | null;
+  score_p1: number;
+  score_p2: number;
+}
+
+export interface RecapCall {
+  minute: number | null;
+  question_content: string;
+  participant: number | null;
+  picked_outcome: string;
+  actual_outcome: string | null;
+  awarded_points: number | null;
+  successful_outcome: boolean | null;
+  state: QuestionState;
+}
+
+export interface RecapPressurePoint {
+  minute: number;
+  value: number;
+}
+
+export interface Recap {
+  game: RecapGame;
+  me: RecapMe;
+  ranks: RecapRanks;
+  goals: RecapGoal[];
+  calls: RecapCall[];
+  pressure: RecapPressurePoint[];
+}
+
 export interface JoinGameBody {
   squad_id?: number;
 }
@@ -391,6 +472,27 @@ export interface SubscribePayload {
   game_id: number;
 }
 
+/** Client -> server `reaction`: an ephemeral squad emoji. `user_id` is stamped
+ *  by the server from the authenticated socket, so it is NOT sent here. */
+export interface OutgoingReaction {
+  game_id: number;
+  squad_id: number;
+  emoji: string;
+  handle: string;
+  avatar: string;
+}
+
+/** Server -> client `reaction`: relayed to the game room, rendered only by
+ *  clients whose picked squad matches `squad_id`. Never persisted. */
+export interface ReactionMessage {
+  game_id: number;
+  squad_id: number;
+  user_id: string;
+  handle: string;
+  avatar: string;
+  emoji: string;
+}
+
 // ---------------------------------------------------------------------------
 // Typed socket.io event maps
 // ---------------------------------------------------------------------------
@@ -401,9 +503,11 @@ export interface ServerToClientEvents {
   question: (payload: QuestionMessage) => void;
   resolution: (payload: ResolutionMessage) => void;
   void: (payload: VoidMessage) => void;
+  reaction: (payload: ReactionMessage) => void;
 }
 
 export interface ClientToServerEvents {
   subscribe: (payload: SubscribePayload) => void;
   unsubscribe: (payload: SubscribePayload) => void;
+  reaction: (payload: OutgoingReaction) => void;
 }

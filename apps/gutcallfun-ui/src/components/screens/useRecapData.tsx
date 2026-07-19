@@ -1,24 +1,51 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { useAnswers, useCurrentUser, useGames, useLeaderboard } from "@/services/api/hooks";
+import { useAnswers, useCurrentUser, useGame, useGameRecap, useGames, useLeaderboard } from "@/services/api/hooks";
 import { getRealData, subscribeRealData } from "@/state/realData";
 import { CountryFlag } from "@/components/common/CountryFlag";
 import type { HistEntry } from "@/state/types";
+import type { RecapPressurePoint } from "@/services/api/types";
 
 const code = (name: string | null | undefined) => (name ?? "").slice(0, 3).toUpperCase();
 
-// The post-match recap for the game the user just watched (the current live
-// game). All numbers are real: score, my match points, my rank in the squad I
-// dueled, my global rank, and the EKG's call dots (my real answers).
-export function useRecapData() {
+/** Nearest-minute sample from the pressure series; 0 when the series is empty. */
+function sampleNearest(pressure: RecapPressurePoint[], minute: number): number {
+  if (pressure.length === 0) return 0;
+  let nearest = pressure[0];
+  let bestDist = Math.abs(pressure[0].minute - minute);
+  for (const p of pressure) {
+    const dist = Math.abs(p.minute - minute);
+    if (dist < bestDist) {
+      nearest = p;
+      bestDist = dist;
+    }
+  }
+  return nearest.value;
+}
+
+// The post-match recap. When `gameId` is given (a /recap/[game_id] deep link,
+// e.g. clicking a specific past match), that EXACT game is used. Omitted
+// (bare /recap — the live "SEE YOUR MATCH EKG →" flow), the existing
+// live-or-most-recent-finished heuristic applies unchanged. All numbers are
+// real: score, my match points, my rank in the squad I dueled, my global
+// rank, and the EKG's call dots (my real answers).
+export function useRecapData(gameId?: number | null) {
   const me = useCurrentUser();
   const games = useGames({ limit: 100 });
-  const game = games.data?.items.find((g) => g.status === "live")
+  const heuristicGame = games.data?.items.find((g) => g.status === "live")
     ?? games.data?.items.find((g) => g.status === "finished")
     ?? null;
+  // Explicit gameId fetches that EXACT game directly (@Public, no auth) rather
+  // than scanning the 100-item list — correct even on a cold cache (a shared
+  // /recap/[game_id] link opened fresh, before the list has ever loaded).
+  const explicitGame = useGame(gameId ?? null);
+  const game = gameId != null ? (explicitGame.data ?? null) : heuristicGame;
   const answers = useAnswers(game ? { game_id: game.id, limit: 100 } : undefined);
   const leaderboard = useLeaderboard({ limit: 100 });
+  // Auth-guarded — gate on having a resolved session, or an unauthenticated
+  // fetch is a guaranteed 401 that never gets retried (staleTime: 30s).
+  const recap = useGameRecap(game?.id ?? null, { enabled: me.data != null });
   const matchSquad = useSyncExternalStore(subscribeRealData, () => getRealData().matchSquadPanel ?? null, () => null);
 
   const t1 = code(game?.team1_name);
@@ -27,27 +54,51 @@ export function useRecapData() {
   const scoreAr = String(game?.score_p2 ?? 0);
 
   const mine = answers.data?.items ?? [];
-  const totalPts = mine.reduce((sum, a) => sum + (a.awarded_points ?? 0), 0);
 
-  // My calls as EKG dots, spread across the timeline by order (answers carry no
-  // match-minute); green when they landed (earned > 0), red when they missed.
-  const resolved = mine
+  // --- Fallback path: answers-derived (no match-minute, no server ranks). ---
+  // Kept exactly as-is for when recap.data is absent or the query errored —
+  // the screen must still render.
+  const fallbackTotalPts = mine.reduce((sum, a) => sum + (a.awarded_points ?? 0), 0);
+  const fallbackResolved = mine
     .filter((a) => a.awarded_points != null)
     .sort((a, b) => a.created_at.localeCompare(b.created_at));
-  const ekgHist: HistEntry[] = resolved.map((a, i) => ({
-    min: Math.round(((i + 0.6) / Math.max(1, resolved.length)) * 90),
+  const fallbackEkgHist: HistEntry[] = fallbackResolved.map((a, i) => ({
+    min: Math.round(((i + 0.6) / Math.max(1, fallbackResolved.length)) * 90),
     clock: "",
     pick: null,
     outcome: "fizzle",
     earned: a.awarded_points ?? 0,
     my: a.successful_outcome ? 0.6 : -0.55,
   }));
-
   const myRank = leaderboard.data?.items.find((e) => e.user_id === me.data?.id)?.rank;
-  const globalRank = myRank ? `#${myRank}` : "—";
+  const fallbackGlobalRank = myRank ? `#${myRank}` : "—";
+  const fallbackSquadName = (matchSquad?.name ?? "YOUR SQUAD").toUpperCase();
+  const fallbackRankLine = matchSquad ? matchSquad.standing.split(" ")[0] : "—";
 
-  const squadName = (matchSquad?.name ?? "YOUR SQUAD").toUpperCase();
-  const rankLine = matchSquad ? matchSquad.standing.split(" ")[0] : "—";
+  const r = recap.data;
+
+  // --- Real path: everything r supplies takes precedence. ---
+  const pressure = r?.pressure ?? [];
+  const goals = r?.goals.map((g) => ({ minute: g.minute, participant: g.participant ?? 1 })) ?? [];
+
+  const realEkgHist: HistEntry[] = r
+    ? r.calls
+        .filter((c): c is typeof c & { minute: number } => c.minute != null)
+        .map((c) => ({
+          min: c.minute,
+          clock: "",
+          pick: null,
+          outcome: "fizzle",
+          earned: c.awarded_points ?? 0,
+          my: sampleNearest(pressure, c.minute),
+        }))
+    : [];
+
+  const totalPts = r ? r.me.total_points : fallbackTotalPts;
+  const ekgHist = r ? realEkgHist : fallbackEkgHist;
+  const globalRank = r ? (r.ranks.global ? `#${r.ranks.global.rank}` : "—") : fallbackGlobalRank;
+  const rankLine = r ? (r.ranks.squad ? `#${r.ranks.squad.rank}` : "—") : fallbackRankLine;
+  const squadName = r ? (r.me.squad_name ?? "YOUR SQUAD").toUpperCase() : fallbackSquadName;
 
   return {
     t1,
@@ -62,5 +113,7 @@ export function useRecapData() {
     squadName,
     globalRank,
     ekgHist,
+    pressure,
+    goals,
   };
 }

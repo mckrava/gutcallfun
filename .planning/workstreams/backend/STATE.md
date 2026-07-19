@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 Phase: 3 — Wallet Auth & User Identity
 Plan: Not started
 Status: Ready to plan
-Last activity: 2026-07-18 — Phase 02.1 complete, transitioned to Phase 3
+Last activity: 2026-07-19 — Completed quick task 260719-iar: REPLAY chip on the live hero card
 
 Progress: [██████████] 100%
 
@@ -100,6 +100,10 @@ Recent decisions affecting current work:
 |---|-------------|------|--------|-----------|
 | 260718-3cm | fix historical replay source A: SSE text parse + pacing clamp | 2026-07-18 | 1f7f37d | [260718-3cm-fix-historical-replay-source-a-sse-text-](./quick/260718-3cm-fix-historical-replay-source-a-sse-text-/) |
 | 260718-48a | fix CR-01 fixtures cron write race and CR-02 abort signal threading | 2026-07-18 | b29eb4d | [260718-48a-fix-cr-01-fixtures-cron-write-race-and-c](./quick/260718-48a-fix-cr-01-fixtures-cron-write-race-and-c/) |
+| 260719-gl4 | add fake users and activity seed sql | 2026-07-19 | 222d1d5 | [260719-gl4-add-fake-users-and-activity-seed-sql](./quick/260719-gl4-add-fake-users-and-activity-seed-sql/) |
+| 260719-fz9 | Add GET /games/:game_id/recap endpoint and wire MatchEkg to real data | 2026-07-19 | 41feeb3 | [260719-fz9-add-get-games-game-id-recap-endpoint-and](./quick/260719-fz9-add-get-games-game-id-recap-endpoint-and/) |
+| 260719-hr6 | Infinite replay loop: DB-toggled clone-forward replay for post-World-Cup judging | 2026-07-19 | bfb4995 | [260719-hr6-infinite-replay-loop-db-toggled-clone-fo](./quick/260719-hr6-infinite-replay-loop-db-toggled-clone-fo/) |
+| 260719-iar | Render a REPLAY label on the live game card when game.is_replay is true | 2026-07-19 | 351a170 | [260719-iar-render-a-replay-label-on-the-live-game-c](./quick/260719-iar-render-a-replay-label-on-the-live-game-c/) |
 
 ### Roadmap Evolution
 

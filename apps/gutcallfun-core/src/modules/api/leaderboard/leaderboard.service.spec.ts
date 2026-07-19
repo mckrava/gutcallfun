@@ -186,4 +186,70 @@ describe('LeaderboardService', () => {
       expect(paramsOf(query)).toEqual([20, 0]);
     });
   });
+
+  describe('findMyRank', () => {
+    // Ranking correctness itself is Postgres's job (proven against real
+    // Postgres, not mockable) — what matters here is that findMyRank shares
+    // the SAME scope builder as findAll, so it can never drift from the
+    // board `/rankings` renders. Asserted by a shared SQL substring.
+    type RankRow = { rank: string; total_rows: string };
+    const rankDs = (rows: RankRow[]) => {
+      const query = jest.fn<Promise<RankRow[]>, [string, unknown[]?]>(() =>
+        Promise.resolve(rows),
+      );
+      return { ds: { query } as unknown as DataSource, query };
+    };
+
+    it('shares the scope builder with findAll (same participants/scored CTEs)', async () => {
+      const { ds, query } = rankDs([{ rank: '2', total_rows: '5' }]);
+      await new LeaderboardService(ds).findMyRank('user-1', { gameId: 42 });
+
+      const sql = sqlOf(query);
+      expect(sql).toContain('LEFT JOIN user_game_answer uga');
+      expect(sql).toContain('FROM user_game ug WHERE ug.game_id = $1');
+    });
+
+    it('global scope: no game/squad params, user id is the only bind param', async () => {
+      const { ds, query } = rankDs([{ rank: '1', total_rows: '9' }]);
+      const result = await new LeaderboardService(ds).findMyRank('user-1');
+
+      expect(paramsOf(query)).toEqual(['user-1']);
+      expect(result).toEqual({ rank: 1, of: 9 });
+    });
+
+    it('game scope: gameId then userId are positional params in order', async () => {
+      const { ds, query } = rankDs([{ rank: '3', total_rows: '12' }]);
+      await new LeaderboardService(ds).findMyRank('user-1', { gameId: 42 });
+
+      expect(paramsOf(query)).toEqual([42, 'user-1']);
+    });
+
+    it('game+squad scope: gameId, squadId, userId in order', async () => {
+      const { ds, query } = rankDs([{ rank: '1', total_rows: '4' }]);
+      await new LeaderboardService(ds).findMyRank('user-1', {
+        gameId: 42,
+        squadId: 7,
+      });
+
+      expect(paramsOf(query)).toEqual([42, 7, 'user-1']);
+    });
+
+    it('coerces rank/of bigint strings to numbers', async () => {
+      const { ds } = rankDs([{ rank: '2', total_rows: '137' }]);
+      const result = await new LeaderboardService(ds).findMyRank('user-1');
+
+      expect(result).toEqual({ rank: 2, of: 137 });
+      expect(typeof result?.rank).toBe('number');
+      expect(typeof result?.of).toBe('number');
+    });
+
+    it('returns null when the caller is absent from the scope', async () => {
+      const { ds } = rankDs([]);
+      const result = await new LeaderboardService(ds).findMyRank('user-1', {
+        gameId: 42,
+      });
+
+      expect(result).toBeNull();
+    });
+  });
 });

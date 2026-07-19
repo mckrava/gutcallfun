@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { API_ORIGIN, SESSION_COOKIE, getSession, refreshSession } from "@/server/session";
+import { API_ORIGIN, SESSION_COOKIE, getSession, refreshSession, sessionCookieOptions } from "@/server/session";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +11,13 @@ export async function GET(req: NextRequest): Promise<Response> {
   const sid = req.cookies.get(SESSION_COOKIE)?.value;
   let session = getSession(sid);
   if (!sid || !session) {
-    return NextResponse.json({ authenticated: false }, { status: 401 });
+    const res = NextResponse.json({ authenticated: false }, { status: 401 });
+    // Self-heal a STALE cookie: a sid that no session backs (e.g. left over from
+    // a previous server process, before the store was persisted) would otherwise
+    // keep 401-ing on every load. Drop it so the browser starts clean and the
+    // user just gets a normal sign-in instead of a stuck cookie.
+    if (sid) res.cookies.delete(SESSION_COOKIE);
+    return res;
   }
 
   const fetchMe = (access: string) =>
@@ -29,5 +35,10 @@ export async function GET(req: NextRequest): Promise<Response> {
   }
 
   const user = await upstream.json().catch(() => null);
-  return NextResponse.json({ authenticated: true, user });
+  const res = NextResponse.json({ authenticated: true, user });
+  // Re-write the (persistent) session cookie on every valid load: slides the
+  // 30-day window for active users, and re-persists it if a flaky webview had
+  // dropped it to a session-scoped cookie.
+  res.cookies.set(SESSION_COOKIE, sid, sessionCookieOptions);
+  return res;
 }

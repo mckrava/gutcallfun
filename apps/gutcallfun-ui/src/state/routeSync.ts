@@ -35,3 +35,12 @@ export function useSyncPost() {
     goPost();
   }, [goPost]);
 }
+
+// Deep-link entry for /recap/[game_id]: a specific past match's recap, as
+// opposed to the bare /recap route's live-or-most-recent-finished heuristic.
+export function useSyncPostGame(gameId: number) {
+  const { goPost } = useAppActions();
+  useEffect(() => {
+    goPost(gameId);
+  }, [goPost, gameId]);
+}

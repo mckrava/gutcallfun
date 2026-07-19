@@ -85,8 +85,18 @@ export interface AppState {
   toast: string | null;
   settled: boolean;
   authStep: AuthStep;
+  // False until SessionRestore's /api/auth/me resolves. While false we do NOT
+  // force /signin (routeForState stays on the current URL), so an authenticated
+  // reload never flashes the login screen — and, crucially, never fires the
+  // premature /signin navigation that raced the session check and left the user
+  // stuck on login "every other refresh".
+  sessionChecked: boolean;
   onbUser: string;
   winDrag?: number;
+  // The specific game a /recap/[game_id] deep link (or a "Your results" card
+  // click) points to. Null on the bare /recap route, where the screen falls
+  // back to guessing the live-or-most-recent-finished game.
+  postGameId: number | null;
 }
 
 // ---- View-model row/item shapes (consumed by components) ----
@@ -218,6 +228,10 @@ export interface MatchSquadRow {
 }
 
 export interface FixtureCard extends Fixture {
+  // The backend game id this card represents. Present on both real-data cards
+  // (adaptGames); the mock FIXTURES.later/.past fallback (no real games,
+  // MatchController.tsx) has no backing game and omits it.
+  gameId?: number;
   onClick: () => void;
   hFlagEl: ReactNode;
   aFlagEl: ReactNode;
@@ -297,11 +311,23 @@ export interface LiveWinToastVM {
   emoji: string; // celebratory glyph, also scaled to the reward
 }
 
+// Wrong-answer notice — deliberately restrained (small, muted, no points): shown
+// only when the caller made a pick and it lost. Says what actually happened so
+// the miss is informative, not just a scolding.
+export interface LiveLossToastVM {
+  headline: string; // calm copy ("NOT THIS TIME")
+  outcomeLabel: string; // what it actually resolved to ("IT WAS A SHOT")
+  emoji: string;
+}
+
 // The "LIVE NOW" hero on the Matches screen, driven by a real live game.
 export interface LiveHeroVM {
   gameId: number;
   comp: string;
   stage: string | null;
+  // Mirrors the backend `Game.is_replay` flag; drives the REPLAY provenance
+  // chip on the live hero card.
+  isReplay: boolean;
   team1Name: string;
   team2Name: string;
   team1Col: string;
@@ -416,6 +442,9 @@ export interface ViewModel {
   isSquadList: boolean;
   isSquadDetail: boolean;
   currentSquadId: number;
+  // Mirrors AppState.postGameId — the specific game /recap/[game_id] resolved
+  // to, or null on the bare /recap route (heuristic fallback applies).
+  postGameId: number | null;
   backSquadList: Handler;
   squadCards: SquadCard[];
   openCreate: Handler;
@@ -516,6 +545,13 @@ export interface ViewModel {
   winToastOutcome: string;
   winToastEmoji: string;
   dismissWinToast: Handler;
+
+  // wrong-answer notice (compact, muted, auto-dismissing)
+  lossToastOn: boolean;
+  lossToastHeadline: string;
+  lossToastOutcome: string;
+  lossToastEmoji: string;
+  dismissLossToast: Handler;
 
   // auth / onboarding
   connectWallet: Handler;

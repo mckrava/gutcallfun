@@ -7,7 +7,10 @@ import { MatchEkg } from "@/components/common/MatchEkg";
 // Real post-match recap — score / points / ranks / calls all from useRecapData.
 export function PostScreen() {
   const vm = useApp();
-  const r = useRecapData();
+  // vm.postGameId is set when this screen was reached via /recap/[game_id]
+  // (a specific past match); null on the bare /recap route, where
+  // useRecapData falls back to its live-or-most-recent-finished heuristic.
+  const r = useRecapData(vm.postGameId);
   return (
     <div
       data-screen-label="Post-match EKG"
@@ -34,7 +37,7 @@ export function PostScreen() {
           </div>
           <div style={{ fontSize: "9.5px", fontWeight: 700, letterSpacing: 1, color: "rgba(220,230,245,.4)" }}>{r.ftLine}</div>
         </div>
-        <div style={{ margin: "12px 0 4px" }}><MatchEkg hist={r.ekgHist} t1={r.t1} t2={r.t2} /></div>
+        <div style={{ margin: "12px 0 4px" }}><MatchEkg hist={r.ekgHist} t1={r.t1} t2={r.t2} pressure={r.pressure} goals={r.goals} /></div>
         <div style={{ display: "flex", gap: 14, justifyContent: "center", marginTop: 6 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "9.5px", color: "rgba(220,230,245,.5)" }}><div style={{ width: 7, height: 7, borderRadius: "50%", background: "#FFD84D" }} />Goals</div>
           <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "9.5px", color: "rgba(220,230,245,.5)" }}><div style={{ width: 7, height: 7, borderRadius: "50%", background: "#3DDC84" }} />Your calls landed</div>

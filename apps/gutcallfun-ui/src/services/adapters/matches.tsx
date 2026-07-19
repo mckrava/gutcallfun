@@ -47,6 +47,7 @@ function upcomingCard(g: Game): FixtureCard {
     an: g.team2_name ?? "TBD",
     when: formatWhen(g.starts_at),
     accent: avatarFor(String(g.id)).ring,
+    gameId: g.id,
     onClick: () => {},
     hFlagEl: <CountryFlag name={g.team1_name} size={38} />,
     aFlagEl: <CountryFlag name={g.team2_name} size={38} />,
@@ -55,7 +56,9 @@ function upcomingCard(g: Game): FixtureCard {
 
 // Finished game → "Your results" card. No myPts: the caller has no per-game
 // score yet (needs auth + answers), so the points badge is omitted downstream.
-function pastCard(g: Game): FixtureCard {
+// `onClick` opens THIS game's recap (mirrors liveHero's onEnter wiring below) —
+// the id is threaded through from the caller (adaptGames), never guessed.
+function pastCard(g: Game, onClick: () => void): FixtureCard {
   return {
     comp: (g.competition ?? "").toUpperCase(),
     hc: "",
@@ -64,7 +67,8 @@ function pastCard(g: Game): FixtureCard {
     an: g.team2_name ?? "TBD",
     score: scoreLine(g),
     accent: avatarFor(String(g.id)).ring,
-    onClick: () => {},
+    gameId: g.id,
+    onClick,
     hFlagEl: <CountryFlag name={g.team1_name} size={36} />,
     aFlagEl: <CountryFlag name={g.team2_name} size={36} />,
   };
@@ -75,6 +79,7 @@ function liveHero(g: Game, onEnter: () => void, participants: GameParticipant[])
     gameId: g.id,
     comp: (g.competition ?? "").toUpperCase(),
     stage: null,
+    isReplay: g.is_replay,
     team1Name: (g.team1_name ?? "TBD").toUpperCase(),
     team2Name: (g.team2_name ?? "TBD").toUpperCase(),
     team1Col: TEAM1_COL,
@@ -91,7 +96,11 @@ function liveHero(g: Game, onEnter: () => void, participants: GameParticipant[])
 // GET /games (starts_at asc); past shows most-recent first.
 export function adaptGames(
   games: Game[],
-  opts: { onEnterLive: (game: Game) => void; liveParticipants?: GameParticipant[] },
+  opts: {
+    onEnterLive: (game: Game) => void;
+    onEnterPost: (game: Game) => void;
+    liveParticipants?: GameParticipant[];
+  },
 ): { laterMatches: FixtureCard[]; pastMatches: FixtureCard[]; liveHero: LiveHeroVM | null } {
   const scheduled = games
     .filter((g) => g.status === "scheduled")
@@ -103,7 +112,7 @@ export function adaptGames(
 
   return {
     laterMatches: scheduled.map(upcomingCard),
-    pastMatches: finished.map(pastCard),
+    pastMatches: finished.map((g) => pastCard(g, () => opts.onEnterPost(g))),
     liveHero: live ? liveHero(live, () => opts.onEnterLive(live), opts.liveParticipants ?? []) : null,
   };
 }

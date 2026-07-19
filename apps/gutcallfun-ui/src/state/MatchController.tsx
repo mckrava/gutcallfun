@@ -73,7 +73,8 @@ export default class MatchController extends React.Component<ControllerProps, Ap
         { n: "Sasha", ini: "SA", emoji: "🚀", c: "#FF5E8A", pts: 0, r: null, mov: "▲1" },
       ],
       flash: null, slam: null, shake: false, homeTab: "upcoming", navTab: "matches", squadView: "list", openSquadIdx: 0, matchSquadIdx: null, myReact: null, squads: SQUADS, modal: null, form: { name: "", emoji: "⚽", code: "", user: "" },
-      ended: false, pre: { winner: null, goals: null }, hist: [], toast: null, settled: false, authStep: "connect", onbUser: "",
+      ended: false, pre: { winner: null, goals: null }, hist: [], toast: null, settled: false, authStep: "connect", sessionChecked: false, onbUser: "",
+      postGameId: null,
     };
   }
 
@@ -140,10 +141,17 @@ export default class MatchController extends React.Component<ControllerProps, Ap
   // when the derived route differs from the current path.
   routeForState(): string {
     const s = this.state;
+    // Session check still pending: keep the URL exactly where it is. Forcing
+    // /signin here (authStep defaults to "connect" on every load) is what
+    // flashed the login screen and raced SessionRestore — the alternating
+    // "logged out / logged in" on refresh. Once the check resolves, authStep is
+    // "done" (→ app) or sessionChecked flips with authStep still "connect"
+    // (→ /signin below), so a genuinely signed-out user still lands on sign-in.
+    if (!s.sessionChecked && s.authStep === "connect") return this.props.pathname;
     if (s.authStep === "connect") return "/signin";
     if (s.authStep === "username") return "/onboarding";
     if (s.screen === "live") return "/live";
-    if (s.screen === "post") return "/recap";
+    if (s.screen === "post") return s.postGameId != null ? "/recap/" + s.postGameId : "/recap";
     const tab = s.navTab;
     if (tab === "ranks") return "/rankings";
     if (tab === "squad") return s.squadView === "detail" ? "/squads/" + s.openSquadIdx : "/squads";
@@ -332,19 +340,33 @@ export default class MatchController extends React.Component<ControllerProps, Ap
     }
   };
 
-  goPost = () => {
+  // gameId present -> a deep-link/card-click to a SPECIFIC game's recap
+  // (/recap/[game_id]); omitted -> the bare /recap flow (mock-simulation
+  // "SEE YOUR MATCH EKG" and the existing live-or-most-recent-finished
+  // heuristic in useRecapData, both unchanged).
+  goPost = (gameId?: number) => {
     const s = this.state;
-    if (s.screen === "post") return;
+    const postGameId = gameId ?? null;
+    // Compare postGameId too, not just screen: without this, switching from
+    // one game's recap straight to a different one (e.g. browser back/forward
+    // between two /recap/[game_id] deep links) would no-op on the second call
+    // because screen was already "post".
+    if (s.screen === "post" && s.postGameId === postGameId) return;
     if (!s.settled) {
       const bW = s.pre.winner === "draw" ? 10 : 0;
       const bG = s.pre.goals === "2-3" ? 10 : 0;
       this.setState((st) => ({ settled: true, squad: st.squad.map((q) => (q.n === "Dmytro" || q.n === "Max") ? Object.assign({}, q, { pts: q.pts + 10 }) : q) }));
       if (bW + bG) this.award(bW + bG);
     }
-    this.setState({ screen: "post", auto: false, clock: "90+5'", phase: "FT", score: { br: 1, ar: 1 }, ended: true });
+    this.setState({ screen: "post", postGameId, auto: false, clock: "90+5'", phase: "FT", score: { br: 1, ar: 1 }, ended: true });
   };
 
-  restart = () => { this.clearAll(); this._ptsTotal = 0; this._dispNow = 0; this._dispT = 0; this._jitV = 0; this.setState(this.fresh()); };
+  // Explicit reset (logout / demo restart): unlike a fresh page load, we are NOT
+  // waiting on a server session check — we KNOW there's no session — so mark the
+  // check done (sessionChecked: true). Without this the routeForState gate holds
+  // the current URL instead of sending the signed-out user to /signin, and
+  // logout appears to do nothing.
+  restart = () => { this.clearAll(); this._ptsTotal = 0; this._dispNow = 0; this._dispT = 0; this._jitV = 0; this.setState({ ...this.fresh(), sessionChecked: true }); };
 
   flagEl(code: string, size: number, ring?: string) {
     return <Flag code={code} size={size} ring={ring} />;
@@ -405,9 +427,14 @@ export default class MatchController extends React.Component<ControllerProps, Ap
   demoGoal = () => { clearInterval(this._ct); this.setState({ screen: "live", flash: "br", shake: true, slam: { word: "GOAL", sub: "RODRYGO · 12'", team: "br" }, score: { br: 1, ar: 0 } }); this._t(() => this.setState({ flash: null, shake: false }), 950); };
   dismissGoal = () => { setRealData({ liveGoal: null }); this.setState({ slam: null, flash: null, shake: false }); };
   dismissWinToast = () => setRealData({ liveWinToast: null });
-  connectWallet = () => this.setState({ authStep: "username" });
-  saveUsername = () => this.setState({ authStep: "done" });
-  showOnboarding = () => this.setState({ authStep: "connect", onbUser: "" });
+  dismissLossToast = () => setRealData({ liveLossToast: null });
+  connectWallet = () => this.setState({ authStep: "username", sessionChecked: true });
+  saveUsername = () => this.setState({ authStep: "done", sessionChecked: true });
+  showOnboarding = () => this.setState({ authStep: "connect", sessionChecked: true, onbUser: "" });
+  // SessionRestore calls this when /api/auth/me says "not signed in" — mark the
+  // check done so routeForState now sends the (genuinely) signed-out user to
+  // /signin instead of holding them on the current URL.
+  sessionCheckFailed = () => this.setState({ sessionChecked: true });
   setOnb = (e: React.ChangeEvent<HTMLInputElement>) => this.setState({ onbUser: e.target.value });
   winDown = (e: React.PointerEvent) => { this._dragY0 = e.clientY; this._dragging = true; };
   winMove = (e: React.PointerEvent) => { if (!this._dragging) return; const dy = Math.max(0, e.clientY - this._dragY0); this.setState({ winDrag: dy }); };
@@ -430,6 +457,14 @@ export default class MatchController extends React.Component<ControllerProps, Ap
     const lm = rd.liveMatch;
     const lw = rd.liveWindow;
     const lg = rd.liveGoal;
+    // When a REAL live game is being watched, the goal / flash overlay must show
+    // ONLY real feed data (lg) — never the mock BRA–ARG demo goal. Suppressing
+    // the mock slam/flash here means no hardcoded team/score can ever leak into
+    // a real match, even if the mock sim state is somehow non-null. The mock
+    // fallback stays intact for the standalone demo (no real game → realLive false).
+    const realLive = rd.liveGameId != null;
+    const mSlam = realLive ? null : s.slam;
+    const mFlash = realLive ? null : s.flash;
     const emb = this.props.embed ?? false;
     const motion = (this.props.motion ?? "full") === "full";
     const t = Math.max(-1, Math.min(1, s.dispT));
@@ -558,6 +593,7 @@ export default class MatchController extends React.Component<ControllerProps, Ap
       isSquadList: (s.squadView || "list") !== "detail",
       isSquadDetail: s.squadView === "detail",
       currentSquadId: s.openSquadIdx,
+      postGameId: s.postGameId,
       backSquadList: this.backSquadList,
       squadCards: s.squads.map((sq, i) => ({ name: sq.name, emoji: sq.emoji, ring: sq.ring, myRank: sq.myRank, count: sq.members.length + " members", onClick: () => this.openSquadDetail(i) })),
       openCreate: () => this.openModal("create"), openJoin: () => this.openModal("join"), openAdd: () => this.openModal("add"),
@@ -684,16 +720,16 @@ export default class MatchController extends React.Component<ControllerProps, Ap
       // "you" row); the mock `rank` (derived from the simulation squad) is only
       // the fallback before that panel exists.
       dispPts: rd.liveDispPts ?? String(s.dispPts), rankChip: "#" + ((rd.matchSquadPanel?.rows.find((r) => r.isYou)?.rank) ?? rank) + " IN SQUAD",
-      flashOn: lg?.flashOn ?? !!s.flash,
-      flashBg: lg?.flashBg ?? (s.flash === "br" ? "radial-gradient(ellipse at 50% 40%, rgba(255,216,77,.9), rgba(255,216,77,0) 72%)" : s.flash === "ar" ? "radial-gradient(ellipse at 50% 40%, rgba(127,184,232,.9), rgba(127,184,232,0) 72%)" : "radial-gradient(ellipse at 50% 40%, rgba(255,255,255,.65), rgba(255,255,255,0) 72%)"),
-      slamOn: lg?.slamOn ?? !!s.slam,
-      slamWord: lg?.slamWord ?? (s.slam ? s.slam.word : ""), slamSub: lg?.slamSub ?? (s.slam ? s.slam.sub : ""),
-      slamColor: lg?.slamColor ?? (s.slam ? T[s.slam.team].c : "#fff"),
-      slamGlow: lg?.slamGlow ?? (s.slam ? this.hexA(T[s.slam.team].c, 0.55) : "rgba(0,0,0,0)"),
-      goalBg: lg?.goalBg ?? (s.slam ? (s.slam.team === "br" ? "radial-gradient(ellipse at 50% 40%, rgba(255,216,77,.32), rgba(6,9,15,.97) 66%)" : "radial-gradient(ellipse at 50% 40%, rgba(127,184,232,.32), rgba(6,9,15,.97) 66%)") : "transparent"),
-      goalFlagEl: lg?.goalFlagEl ?? (s.slam ? this.flagEl(s.slam.team === "br" ? "BRA" : "ARG", 84) : null),
-      goalTeamName: lg?.goalTeamName ?? (s.slam ? T[s.slam.team].nice.toUpperCase() + " SCORE" : ""),
-      goalScore: lg?.goalScore ?? (s.slam ? ("BRA " + s.score.br + " – " + s.score.ar + " ARG") : ""),
+      flashOn: lg?.flashOn ?? !!mFlash,
+      flashBg: lg?.flashBg ?? (mFlash === "br" ? "radial-gradient(ellipse at 50% 40%, rgba(255,216,77,.9), rgba(255,216,77,0) 72%)" : mFlash === "ar" ? "radial-gradient(ellipse at 50% 40%, rgba(127,184,232,.9), rgba(127,184,232,0) 72%)" : "radial-gradient(ellipse at 50% 40%, rgba(255,255,255,.65), rgba(255,255,255,0) 72%)"),
+      slamOn: lg?.slamOn ?? !!mSlam,
+      slamWord: lg?.slamWord ?? (mSlam ? mSlam.word : ""), slamSub: lg?.slamSub ?? (mSlam ? mSlam.sub : ""),
+      slamColor: lg?.slamColor ?? (mSlam ? T[mSlam.team].c : "#fff"),
+      slamGlow: lg?.slamGlow ?? (mSlam ? this.hexA(T[mSlam.team].c, 0.55) : "rgba(0,0,0,0)"),
+      goalBg: lg?.goalBg ?? (mSlam ? (mSlam.team === "br" ? "radial-gradient(ellipse at 50% 40%, rgba(255,216,77,.32), rgba(6,9,15,.97) 66%)" : "radial-gradient(ellipse at 50% 40%, rgba(127,184,232,.32), rgba(6,9,15,.97) 66%)") : "transparent"),
+      goalFlagEl: lg?.goalFlagEl ?? (mSlam ? this.flagEl(mSlam.team === "br" ? "BRA" : "ARG", 84) : null),
+      goalTeamName: lg?.goalTeamName ?? (mSlam ? T[mSlam.team].nice.toUpperCase() + " SCORE" : ""),
+      goalScore: lg?.goalScore ?? (mSlam ? ("BRA " + s.score.br + " – " + s.score.ar + " ARG") : ""),
       dismissGoal: this.dismissGoal,
       winToastOn: !!rd.liveWinToast,
       winToastPoints: rd.liveWinToast ? "+" + rd.liveWinToast.points : "",
@@ -701,6 +737,11 @@ export default class MatchController extends React.Component<ControllerProps, Ap
       winToastOutcome: rd.liveWinToast?.outcomeLabel ?? "",
       winToastEmoji: rd.liveWinToast?.emoji ?? "",
       dismissWinToast: this.dismissWinToast,
+      lossToastOn: !!rd.liveLossToast,
+      lossToastHeadline: rd.liveLossToast?.headline ?? "",
+      lossToastOutcome: rd.liveLossToast?.outcomeLabel ?? "",
+      lossToastEmoji: rd.liveLossToast?.emoji ?? "",
+      dismissLossToast: this.dismissLossToast,
       isAuth: s.authStep === "connect", isUsername: s.authStep === "username",
       connectWallet: this.connectWallet, saveUsername: this.saveUsername, showOnboarding: this.showOnboarding,
       onbUser: s.onbUser, setOnb: this.setOnb,
@@ -725,7 +766,7 @@ export default class MatchController extends React.Component<ControllerProps, Ap
   actions: AppActions = {
     setNav: (t) => this.setNav(t),
     enterLive: () => this.enterLive(),
-    goPost: () => this.goPost(),
+    goPost: (gameId) => this.goPost(gameId),
     goHome: () => this.goHome(),
     restart: () => this.restart(),
     openSquadDetail: (i) => this.openSquadDetail(i),
@@ -733,6 +774,7 @@ export default class MatchController extends React.Component<ControllerProps, Ap
     backSquadList: () => this.backSquadList(),
     connectWallet: () => this.connectWallet(),
     saveUsername: () => this.saveUsername(),
+    sessionCheckFailed: () => this.sessionCheckFailed(),
   };
 
   render() {

@@ -30,10 +30,12 @@ export function MatchesScreen() {
       {vm.isUpcoming && (<>
         {vm.hasLiveGame && vm.liveHero && (
         <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+          {!vm.liveHero.isReplay && (
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#FF4D5E", animation: "kfDot 1.1s ease-in-out infinite" }}></div>
             <div style={{ fontSize: "10.5px", fontWeight: 700, letterSpacing: "2.5px", color: "#FF6B78" }}>LIVE NOW</div>
           </div>
+          )}
           <button onClick={vm.liveHero.onEnter} style={{ width: "100%", display: "block", textAlign: "left", border: "none", cursor: "pointer", borderRadius: 22, padding: 0, background: "none", color: "#F2F6FC" }}>
           <div style={{ borderRadius: 22, background: "linear-gradient(165deg,#182642 0%,#0A1120 100%)", border: "1px solid rgba(255,216,77,.35)", padding: 18, boxShadow: "0 14px 44px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.06)", position: "relative", overflow: "hidden" }}>
             <div style={{ position: "absolute", top: "-40%", right: "-20%", width: 220, height: 220, background: "radial-gradient(circle, rgba(255,216,77,.13), transparent 68%)", pointerEvents: "none" }}></div>
@@ -43,6 +45,10 @@ export function MatchesScreen() {
               {vm.liveHero.stage && (<>
               <div style={{ width: 3, height: 3, borderRadius: "50%", background: "rgba(220,230,245,.3)" }}></div>
               <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 12, letterSpacing: "1px", color: "#FFD84D", background: "rgba(255,216,77,.12)", border: "1px solid rgba(255,216,77,.35)", borderRadius: 6, padding: "2px 9px" }}>{vm.liveHero.stage}</div>
+              </>)}
+              {vm.liveHero.isReplay && (<>
+              <div style={{ width: 3, height: 3, borderRadius: "50%", background: "rgba(220,230,245,.3)" }}></div>
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 12, letterSpacing: "1px", color: "rgba(220,230,245,.65)", background: "rgba(220,230,245,.08)", border: "1px solid rgba(220,230,245,.22)", borderRadius: 6, padding: "2px 9px" }}>REPLAY</div>
               </>)}
             </div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "20px 4px 18px", position: "relative" }}>

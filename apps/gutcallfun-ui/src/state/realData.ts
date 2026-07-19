@@ -1,6 +1,6 @@
 "use client";
 
-import type { FixtureCard, LiveGoalVM, LiveHeroVM, LiveMatchVM, LiveWindowVM, LiveWinToastVM, MatchSquadPanelVM, RankRow } from "./types";
+import type { FixtureCard, LiveGoalVM, LiveHeroVM, LiveLossToastVM, LiveMatchVM, LiveWindowVM, LiveWinToastVM, MatchSquadPanelVM, RankRow } from "./types";
 
 // A tiny module-level observable holding real, backend-sourced view-model rows
 // that OVERRIDE the mock constants when present. The bridge (a hook-driven
@@ -30,6 +30,9 @@ export interface RealData {
   // Compact correct-answer win pop, set by LiveMatchBridge when the caller's own
   // pick wins a resolution; cleared by its auto-dismiss timer or a tap.
   liveWinToast?: LiveWinToastVM | null;
+  // Compact wrong-answer notice, set by LiveMatchBridge when the caller's own
+  // pick loses a resolution; cleared by its auto-dismiss timer or a tap.
+  liveLossToast?: LiveLossToastVM | null;
   // "YOUR POINTS" for the live match — sum of my answers' awarded points.
   liveDispPts?: string;
   // The currently-live game's id, published by RealDataBridge so other bridges

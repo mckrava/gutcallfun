@@ -81,6 +81,51 @@ export class LeaderboardService {
       offset,
     };
   }
+
+  /**
+   * The caller's own rank within one scope, e.g. for the post-match recap's
+   * "GLOBAL" / "IN {SQUAD}" tiles. Deliberately composes `buildScopedCtes` —
+   * the SAME participant/scored CTEs `findAll` uses — rather than a
+   * hand-written second ranking query, so this can never drift from the
+   * board `/rankings` renders for the same scope.
+   */
+  async findMyRank(
+    userId: string,
+    scope: { gameId?: number | null; squadId?: number | null } = {},
+  ): Promise<{ rank: number; of: number } | null> {
+    const gameId = scope.gameId ?? null;
+    const squadId = scope.squadId ?? null;
+
+    const { cte, nextParam } = buildScopedCtes(gameId, squadId);
+    const userParam = `$${nextParam}`;
+
+    const sql = `
+      ${cte},
+      ranked AS (
+        SELECT s.user_id,
+               RANK() OVER (ORDER BY s.total_points DESC) AS rank,
+               COUNT(*) OVER () AS total_rows
+          FROM scored s
+      )
+      SELECT rank, total_rows
+        FROM ranked
+       WHERE user_id = ${userParam}
+    `;
+
+    const rows = await this.dataSource.query<
+      { rank: string; total_rows: string }[]
+    >(
+      sql,
+      [gameId, squadId, userId].filter((p) => p !== null),
+    );
+
+    if (rows.length === 0) return null;
+
+    return {
+      rank: Number(rows[0].rank),
+      of: Number(rows[0].total_rows),
+    };
+  }
 }
 
 interface LeaderboardRawRow {
@@ -94,22 +139,23 @@ interface LeaderboardRawRow {
 }
 
 /**
- * Built as a string rather than via QueryBuilder because the participant set
- * changes shape (not just its predicates) between the global and game-scoped
- * boards, and the squad predicate has to sit inside a LEFT JOIN's ON clause.
+ * The `participants` + `scored` CTEs shared by every scoped read
+ * (`findAll`'s board and `findMyRank`'s single-row lookup). Built as a string
+ * rather than via QueryBuilder because the participant set changes shape (not
+ * just its predicates) between the global and game-scoped boards, and the
+ * squad predicate has to sit inside a LEFT JOIN's ON clause.
  *
- * Parameters are positional and assigned in the same order the service filters
- * them, so a null scope consumes no placeholder.
+ * Parameters are positional, starting at $1; returns the next free parameter
+ * index so the caller can append its own LIMIT/OFFSET or user-id predicate
+ * without recomputing which slots the scope already consumed.
  */
-function buildLeaderboardSql(
+function buildScopedCtes(
   gameId: number | null,
   squadId: number | null,
-): string {
+): { cte: string; nextParam: number } {
   let next = 1;
   const gameParam = gameId !== null ? `$${next++}` : null;
   const squadParam = squadId !== null ? `$${next++}` : null;
-  const limitParam = `$${next++}`;
-  const offsetParam = `$${next++}`;
 
   // WHO APPEARS on the board — deliberately not "whoever has answers". A
   // player who joined but has not scored yet must still be visible (at zero),
@@ -148,7 +194,7 @@ function buildLeaderboardSql(
               AND ug.squad_id = ${squadParam})`
       : '';
 
-  return `
+  const cte = `
     WITH participants AS (
       ${participants}
     ),
@@ -163,6 +209,22 @@ function buildLeaderboardSql(
               ${squadAttribution}
        GROUP BY p.user_id
     )
+  `;
+
+  return { cte, nextParam: next };
+}
+
+function buildLeaderboardSql(
+  gameId: number | null,
+  squadId: number | null,
+): string {
+  const { cte, nextParam } = buildScopedCtes(gameId, squadId);
+  let next = nextParam;
+  const limitParam = `$${next++}`;
+  const offsetParam = `$${next++}`;
+
+  return `
+    ${cte}
     SELECT s.user_id,
            u.handle,
            u.emoji,
