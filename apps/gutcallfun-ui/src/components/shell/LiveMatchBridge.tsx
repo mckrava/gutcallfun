@@ -5,14 +5,19 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAnswers, useGames, useSubmitAnswer } from "@/services/api/hooks";
 import { queryKeys } from "@/services/api/queryKeys";
 import { useLiveGame } from "@/services/realtime/LiveProvider";
-import { deriveLiveGoal, deriveLiveMatch, deriveLiveWindow } from "@/services/adapters/live";
-import { setRealData } from "@/state/realData";
+import { deriveLiveGoal, deriveLiveMatch, deriveLiveWindow, deriveWinToast } from "@/services/adapters/live";
+import { getRealData, setRealData } from "@/state/realData";
 
 // How long the prediction overlay lingers past the answer lock (`expires_at`)
 // before it is dismissed. Long enough to register the ring hitting zero, short
 // enough that it never reads as stuck. The ring ticks at 250ms, so the actual
 // dismissal lands within a quarter-second of this.
 const WINDOW_LINGER_MS = 1000;
+
+// How long each celebration stays up. The goal is a full-screen takeover; the
+// win pop is sequenced to appear only AFTER it, so the two never stack.
+const GOAL_CELEBRATION_MS = 4500;
+const WIN_TOAST_MS = 4200;
 
 // Bridges a real live game's WebSocket feed into the mock LiveScreen + overlays.
 // Finds the current live game, subscribes to its socket room (snapshot /
@@ -74,6 +79,10 @@ export function LiveMatchBridge() {
   const question = live?.activeQuestion ?? null;
   const questionId = question?.id ?? null;
   const [picked, setPicked] = useState<{ qid: string; optionId: string } | null>(null);
+  // The caller's pick per question id, kept in a ref so it survives the `picked`
+  // reset on each new window: the win pop below needs it at RESOLUTION time
+  // (~12s later), long after `picked` has been cleared for the next question.
+  const picksRef = useRef<Map<string, string>>(new Map());
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
 
   // Reset the locked answer whenever a new question opens. nowMs is re-seeded
@@ -120,6 +129,7 @@ export function LiveMatchBridge() {
         nowMs,
         onPick: (optionId) => {
           setPicked({ qid: question.id, optionId });
+          picksRef.current.set(question.id, optionId);
           submitAnswer.mutate({ game_question_id: question.id, selected_option_id: optionId });
         },
       }),
@@ -143,8 +153,55 @@ export function LiveMatchBridge() {
     const s2 = live?.snapshot?.score_p2 ?? liveGame.score_p2;
     setRealData({ liveGoal: deriveLiveGoal(liveGame, participant, s1, s2) });
     if (goalTimer.current) clearTimeout(goalTimer.current);
-    goalTimer.current = setTimeout(() => setRealData({ liveGoal: null }), 4500);
+    goalTimer.current = setTimeout(() => setRealData({ liveGoal: null }), GOAL_CELEBRATION_MS);
   }, [goalId, liveGame, live, goalEvent]);
+
+  // --- Correct-answer win pop (WS `resolution` for MY winning pick) ------------
+  //
+  // Correctness is derived on the client, instantly, with no refetch: the caller
+  // won iff the option they picked for this question is the one that resolved.
+  // `awarded_points` on the resolution IS the correct-pick payout, so the pop
+  // never has to wait on the user_game_answer round-trip (that still runs above,
+  // to move the authoritative points totals).
+  const resolution = live?.lastResolution ?? null;
+  const resolutionId = resolution?.game_question_id ?? null;
+  const shownWinResId = useRef<string | null>(null);
+  const winTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const winDelayTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    // Fire once per resolution id. Timers in refs so unrelated WS messages
+    // re-running this effect don't cancel an in-flight pop (same as the goal).
+    if (!resolution || !liveGame || shownWinResId.current === resolutionId) return;
+    shownWinResId.current = resolutionId;
+    // Only celebrate a correct answer the caller actually made — no pick, or a
+    // wrong pick, shows nothing.
+    const myPick = picksRef.current.get(resolution.game_question_id);
+    if (!myPick || myPick !== resolution.resolved_option_id) return;
+
+    const toast = deriveWinToast(resolution);
+    // Show only once the coast is clear: a full-screen goal celebration must
+    // never have the win pop stacked on top of it. Re-checks the store because
+    // the goal is a separate WS message that can land just before or after this.
+    const showWhenClear = () => {
+      if (getRealData().liveGoal) {
+        winDelayTimer.current = setTimeout(showWhenClear, 300);
+        return;
+      }
+      setRealData({ liveWinToast: toast });
+      if (winTimer.current) clearTimeout(winTimer.current);
+      winTimer.current = setTimeout(() => setRealData({ liveWinToast: null }), WIN_TOAST_MS);
+    };
+
+    if (winDelayTimer.current) clearTimeout(winDelayTimer.current);
+    // A `goal` outcome triggers a goal celebration that arrives RIGHT AFTER this
+    // resolution (order not guaranteed) — wait out its full duration before even
+    // checking, so we don't pop in the gap before the goal message lands.
+    if (resolution.resolved_outcome_key === "goal") {
+      winDelayTimer.current = setTimeout(showWhenClear, GOAL_CELEBRATION_MS + 300);
+    } else {
+      showWhenClear();
+    }
+  }, [resolutionId, resolution, liveGame]);
 
   return null;
 }

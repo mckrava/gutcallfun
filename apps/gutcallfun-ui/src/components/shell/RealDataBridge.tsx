@@ -97,7 +97,11 @@ export function RealDataBridge() {
     // meId drives the "you" highlight. It was omitted here, so the caller's own
     // row rendered like everyone else's on the global board.
     const { rankTop3, rankAround } = leaderboardToRankRows(leaderboard.data.items, me.data?.id);
-    setRealData({ rankTop3, rankAround });
+    // The caller's real global rank for the LiveScreen footer (was a mock
+    // formula on the simulation's point total). null when the caller isn't on
+    // the fetched slice, so renderVals falls back to the mock rather than "#".
+    const myRank = leaderboard.data.items.find((e) => e.user_id === me.data?.id)?.rank;
+    setRealData({ rankTop3, rankAround, liveGlobalRank: myRank != null ? `#${myRank}` : null });
   }, [leaderboard.data, me.data?.id]);
 
   return null;

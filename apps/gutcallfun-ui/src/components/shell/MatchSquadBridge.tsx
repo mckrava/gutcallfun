@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useSyncExternalStore } from "react";
-import { useCurrentUser, useLeaderboard, useSquad } from "@/services/api/hooks";
+import { useCurrentUser, useLeaderboard, useSquad, useSquadParticipants } from "@/services/api/hooks";
 import { squadToMatchPanel } from "@/services/adapters/squads";
 import { getRealData, setRealData, subscribeRealData } from "@/state/realData";
 
@@ -30,6 +30,9 @@ export function MatchSquadBridge() {
 
   const me = useCurrentUser();
   const squad = useSquad(matchSquadId);
+  // The full roster, so the panel shows every squadmate — not just those who
+  // joined this game with this squad (who are all the scoped board returns).
+  const participants = useSquadParticipants(matchSquadId);
 
   // Both ids are required. Querying with only squad_id would return the squad's
   // LIFETIME board, silently reintroducing the bug this replaced — so when
@@ -47,13 +50,14 @@ export function MatchSquadBridge() {
       setRealData({ matchSquadPanel: null });
       return;
     }
-    // Derived inside the effect: a `rows` array computed during render is a new
-    // reference every pass and would re-trigger this effect forever as a dep.
+    // Derived inside the effect: a `rows`/`roster` array computed during render
+    // is a new reference every pass and would re-trigger this effect forever.
     const rows = scoped ? (board.data?.items ?? []) : [];
+    const roster = (participants.data?.items ?? []).filter((p) => p.active);
     setRealData({
-      matchSquadPanel: squadToMatchPanel(squad.data, rows, me.data?.id),
+      matchSquadPanel: squadToMatchPanel(squad.data, rows, me.data?.id, roster),
     });
-  }, [matchSquadId, squad.data, board.data, me.data, scoped]);
+  }, [matchSquadId, squad.data, board.data, participants.data, me.data, scoped]);
 
   return null;
 }
