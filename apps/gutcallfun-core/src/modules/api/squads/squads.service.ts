@@ -5,7 +5,6 @@ import { Repository } from 'typeorm';
 import { SquadEntity } from '../../../models/squad/squad.entity';
 import { SquadParticipantEntity } from '../../../models/squad/squad-participant.entity';
 import { UserEntity } from '../../../models/account/user.entity';
-import { UserScoreProfileEntity } from '../../../models/account/user-score-profile.entity';
 import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto';
 import { CreateSquadParticipantDto } from './dto/create-squad-participant.dto';
 import { CreateSquadDto } from './dto/create-squad.dto';
@@ -19,6 +18,9 @@ import {
   SquadResponseDto,
 } from './dto/squad-response.dto';
 import { SquadScoreProfileResponseDto } from './dto/squad-score-profile-response.dto';
+import { SquadScoreProfileEntity } from '../../../models/squad/squad-score-profile.entity';
+import { ScoreProfileService } from '../../scoring/score-profile.service';
+import { ScoreAggregateService } from '../../scoring/score-aggregate.service';
 
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const iso = (d: Date | null | undefined): string | null =>
@@ -33,12 +35,17 @@ export class SquadsService {
     private readonly squadsRepo: Repository<SquadEntity>,
     @InjectRepository(SquadParticipantEntity)
     private readonly participantsRepo: Repository<SquadParticipantEntity>,
-    @InjectRepository(UserScoreProfileEntity)
-    private readonly userProfilesRepo: Repository<UserScoreProfileEntity>,
+    @InjectRepository(SquadScoreProfileEntity)
+    private readonly squadProfilesRepo: Repository<SquadScoreProfileEntity>,
+    private readonly scoreProfiles: ScoreProfileService,
+    private readonly scoreAggregates: ScoreAggregateService,
   ) {}
 
   // `squad.id` has no DB default — allocate max+1 and retry on the rare PK race.
-  async create(dto: CreateSquadDto, creatorUserId?: string): Promise<SquadResponseDto> {
+  async create(
+    dto: CreateSquadDto,
+    creatorUserId?: string,
+  ): Promise<SquadResponseDto> {
     for (let attempt = 0; attempt < 5; attempt++) {
       const max = await this.squadsRepo
         .createQueryBuilder('s')
@@ -55,11 +62,17 @@ export class SquadsService {
       });
       try {
         const saved = await this.squadsRepo.save(squad);
+        // One shared profile per squad; participants are pointed at it as they
+        // join (insertParticipant), including the creator on the next line.
+        await this.scoreProfiles.ensureSquadProfile(saved.id);
         if (creatorUserId) {
           await this.insertParticipant(saved.id, creatorUserId);
         }
         const row = await this.squadsRepo.findOne({ where: { id: saved.id } });
-        return this.toResponseDto(row ?? saved, await this.countMembers(saved.id));
+        return this.toResponseDto(
+          row ?? saved,
+          await this.countMembers(saved.id),
+        );
       } catch (err) {
         // Duplicate PK from a concurrent create — recompute max and retry.
         if (isUniqueViolation(err)) continue;
@@ -75,7 +88,10 @@ export class SquadsService {
   }
 
   // Join a squad by its shareable invite code — adds the caller as a participant.
-  async joinByCode(inviteCode: string, userId: string): Promise<SquadResponseDto> {
+  async joinByCode(
+    inviteCode: string,
+    userId: string,
+  ): Promise<SquadResponseDto> {
     const squad = await this.squadsRepo.findOne({
       where: { inviteCode: inviteCode.trim() },
     });
@@ -86,7 +102,9 @@ export class SquadsService {
     return this.toResponseDto(squad, await this.countMembers(squad.id));
   }
 
-  async findAll(query: ListSquadsQueryDto): Promise<PaginatedSquadsResponseDto> {
+  async findAll(
+    query: ListSquadsQueryDto,
+  ): Promise<PaginatedSquadsResponseDto> {
     const qb = this.squadsRepo
       .createQueryBuilder('s')
       .where('s.deletedAt IS NULL');
@@ -99,7 +117,9 @@ export class SquadsService {
     qb.orderBy('s.id', 'ASC').skip(query.offset).take(query.limit);
     const [rows, total] = await qb.getManyAndCount();
     const items = await Promise.all(
-      rows.map(async (s) => this.toResponseDto(s, await this.countMembers(s.id))),
+      rows.map(async (s) =>
+        this.toResponseDto(s, await this.countMembers(s.id)),
+      ),
     );
     return { items, total, limit: query.limit, offset: query.offset };
   }
@@ -146,23 +166,53 @@ export class SquadsService {
     return { items, total, limit: query.limit, offset: query.offset };
   }
 
-  // No squad_score_profile pipeline yet, so report a live aggregate of the
-  // members' points — real, and more useful than a 404 for a fresh squad.
-  async findScoreProfile(squadId: number): Promise<SquadScoreProfileResponseDto> {
+  /**
+   * The squad's standing, DERIVED from `user_game_answer` rather than read from
+   * the `squad_score_profile` counter — see the tradeoff block in
+   * `leaderboard.service.ts`. The profile ROW is still ensured because its `id`
+   * is part of the wire contract and `squad_participant.score_profile` FKs to
+   * it; its stored totals are not what is served.
+   *
+   * Points count only where a member was REPRESENTING this squad
+   * (`user_game.squad_id`), which is deliberately not the same as summing every
+   * member's lifetime total — a user can play for several squads over time.
+   *
+   * `avg_points` is the headline number (players-only denominator); see
+   * `ScoreAggregateService.squadTotals` for why.
+   */
+  async findScoreProfile(
+    squadId: number,
+  ): Promise<SquadScoreProfileResponseDto> {
     await this.findSquadOrThrow(squadId);
-    const members = await this.enrichedParticipants(squadId);
-    const total = members.reduce((sum, m) => sum + (m.total_points || 0), 0);
+    const profileId = await this.scoreProfiles.ensureSquadProfile(squadId);
+    const profile = await this.squadProfilesRepo.findOne({
+      where: { id: profileId },
+    });
+    if (!profile) {
+      throw new NotFoundException(
+        `Score profile for squad ${squadId} not found`,
+      );
+    }
+
+    const { totalPoints, avgPoints, playersCount, gamesPlayed } =
+      await this.scoreAggregates.squadTotals(squadId);
+
     return {
-      id: `squad:${squadId}`,
-      total_points: total,
-      games_played: 0,
-      updated_at: new Date().toISOString(),
+      id: profile.id,
+      total_points: totalPoints,
+      avg_points: avgPoints,
+      players_count: playersCount,
+      games_played: gamesPlayed,
+      updated_at: iso(profile.updatedAt),
     };
   }
 
   // --- helpers ---------------------------------------------------------------
 
-  private async insertParticipant(squadId: number, userId: string): Promise<void> {
+  private async insertParticipant(
+    squadId: number,
+    userId: string,
+  ): Promise<void> {
     // Composite PK (squad_id, user_id) makes re-adds idempotent.
     await this.participantsRepo
       .createQueryBuilder()
@@ -171,10 +221,23 @@ export class SquadsService {
       .values({ squadId, userId, active: true, scoreProfile: null })
       .orIgnore()
       .execute();
+
+    // Point the membership at the squad's shared profile. Separate statement
+    // because score_profile FKs to a row that must already exist, and because
+    // orIgnore() above means we may be looking at a pre-existing membership
+    // whose link was never set.
+    await this.scoreProfiles.linkParticipantProfile(squadId, userId);
   }
 
-  // Join participant → user → user_score_profile so each member row carries its
-  // handle / emoji / image / points. Ordered by points desc for the standings.
+  /**
+   * Join participant → user, with each member's points scoped TO THIS SQUAD.
+   *
+   * `total_points` here is what the member earned while representing this
+   * squad, not their lifetime total. Before this was derived it read
+   * `user_score_profile.total_points`, i.e. a global figure — which made the
+   * squad standings rank members by points they had earned for OTHER squads.
+   * Ordered by those squad-scoped points desc for the standings.
+   */
   private async enrichedParticipants(
     squadId: number,
     userId?: string,
@@ -184,7 +247,6 @@ export class SquadsService {
     const qb = this.participantsRepo
       .createQueryBuilder('sp')
       .leftJoin(UserEntity, 'u', 'u.id = sp.user_id')
-      .leftJoin(UserScoreProfileEntity, 'usp', 'usp.id = u.score_profile')
       .select([
         'sp.squad_id AS squad_id',
         'sp.user_id AS user_id',
@@ -195,7 +257,15 @@ export class SquadsService {
         'u.handle AS handle',
         'u.emoji AS emoji',
         'u.image AS image',
-        'COALESCE(usp.total_points, 0) AS total_points',
+        `COALESCE((
+           SELECT SUM(uga.awarded_points)
+             FROM user_game_answer uga
+             JOIN user_game ug
+               ON ug.game_id = uga.game_id AND ug.user_id = uga.user_id
+            WHERE uga.user_id = sp.user_id
+              AND ug.squad_id = sp.squad_id
+              AND uga.awarded_points IS NOT NULL
+         ), 0) AS total_points`,
       ])
       .where('sp.squad_id = :squadId', { squadId });
     if (userId) qb.andWhere('sp.user_id = :userId', { userId });

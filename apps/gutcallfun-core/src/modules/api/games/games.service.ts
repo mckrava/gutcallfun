@@ -20,6 +20,7 @@ import { ListQuestionsQueryDto } from './dto/list-questions-query.dto';
 import { QuestionOptionResponseDto } from './dto/question-option-response.dto';
 import { QuestionResponseDto } from './dto/question-response.dto';
 import { UserGameResponseDto } from './dto/user-game-response.dto';
+import { ScoreProfileService } from '../../scoring/score-profile.service';
 
 function pgErrorOf(err: unknown): { code?: string; constraint?: string } {
   const e = err as
@@ -58,6 +59,7 @@ export class GamesService {
     private readonly questionsRepo: Repository<GameQuestionEntity>,
     @InjectRepository(GameQuestionOptionEntity)
     private readonly optionsRepo: Repository<GameQuestionOptionEntity>,
+    private readonly scoreProfiles: ScoreProfileService,
   ) {}
 
   async findAll(query: ListGamesQueryDto): Promise<PaginatedGamesResponseDto> {
@@ -188,6 +190,20 @@ export class GamesService {
    * Idempotent by design: joining a game twice returns the existing
    * user_game row instead of erroring, so the demo UI can call join on every
    * page load without special-casing.
+   *
+   * A re-join that SUPPLIES a squad means "I am playing this match for this
+   * squad" and updates the association — picking a squad after entering the
+   * game is the normal flow, and without this the choice was silently dropped.
+   * Omitting `squad_id` never clears an existing one: the UI re-joins with an
+   * empty body on every page load, and treating that as "no squad" would wipe
+   * the association on refresh.
+   *
+   * CONSEQUENCE — squad attribution is derived at READ time from
+   * `user_game.squad_id`, so changing it RETROACTIVELY moves every point
+   * already earned in this game to the new squad. That matches "who am I
+   * playing this match for", but it is not an append-only audit trail; if
+   * per-answer attribution is ever needed, squad_id has to be denormalized onto
+   * `user_game_answer` at resolution instead.
    */
   async join(
     gameId: number,
@@ -200,15 +216,24 @@ export class GamesService {
       where: { gameId, userId },
     });
     if (existing) {
+      if (squadId != null && existing.squadId !== squadId) {
+        await this.userGamesRepo.update({ gameId, userId }, { squadId });
+        const updated = await this.userGamesRepo.findOne({
+          where: { gameId, userId },
+        });
+        if (updated) return this.toUserGameDto(updated);
+      }
       return this.toUserGameDto(existing);
     }
 
+    let inserted = false;
     try {
       await this.userGamesRepo.insert({
         gameId,
         userId,
         squadId: squadId ?? null,
       });
+      inserted = true;
     } catch (err) {
       if (isForeignKeyViolation(err)) {
         // The only caller-supplied FK is user_id — game_id was validated above.
@@ -226,6 +251,14 @@ export class GamesService {
         `Join for user ${userId} on game ${gameId} could not be read back`,
       );
     }
+
+    // games_played counts games JOINED — but only on a genuinely new join.
+    // Both the early return above and the lost-race path skip this, so the
+    // idempotent re-join the UI makes on every page load cannot inflate it.
+    if (inserted) {
+      await this.scoreProfiles.recordGameJoin(userId, gameId, row.squadId);
+    }
+
     return this.toUserGameDto(row);
   }
 
@@ -253,7 +286,13 @@ export class GamesService {
       .orderBy('ug.joined_at', 'ASC')
       .limit(limit)
       .offset(offset)
-      .getRawMany<{ user_id: string; handle: string | null; emoji: string | null; image: string | null; joined_at: Date }>();
+      .getRawMany<{
+        user_id: string;
+        handle: string | null;
+        emoji: string | null;
+        image: string | null;
+        joined_at: Date;
+      }>();
     return {
       items: rows.map((r) => ({
         user_id: r.user_id,

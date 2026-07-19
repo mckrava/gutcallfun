@@ -17,13 +17,32 @@ import {
 } from './dto/user-response.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserScoreProfileResponseDto } from './dto/user-score-profile-response.dto';
+import { ScoreProfileService } from '../../scoring/score-profile.service';
+import { ScoreAggregateService } from '../../scoring/score-aggregate.service';
 
 // Crockford base32: no I, L, O, U — unambiguous when read aloud or typed.
 const CROCKFORD_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 const SHARE_CODE_ATTEMPTS = 5;
 
 // Avatar emoji auto-assigned at registration when the client doesn't supply one.
-const AVATAR_EMOJIS = ['🦊', '🐸', '🐙', '🐼', '🚀', '🐢', '🐵', '🐺', '🐝', '🐳', '🦁', '🐧', '🦉', '🐰', '🐨', '🐯'];
+const AVATAR_EMOJIS = [
+  '🦊',
+  '🐸',
+  '🐙',
+  '🐼',
+  '🚀',
+  '🐢',
+  '🐵',
+  '🐺',
+  '🐝',
+  '🐳',
+  '🦁',
+  '🐧',
+  '🦉',
+  '🐰',
+  '🐨',
+  '🐯',
+];
 
 /**
  * Narrows a thrown TypeORM error to the underlying pg error fields. TypeORM
@@ -65,6 +84,8 @@ export class UsersService {
     private readonly usersRepo: Repository<UserEntity>,
     @InjectRepository(UserScoreProfileEntity)
     private readonly scoreProfilesRepo: Repository<UserScoreProfileEntity>,
+    private readonly scoreProfiles: ScoreProfileService,
+    private readonly scoreAggregates: ScoreAggregateService,
   ) {}
 
   async findAll(query: ListUsersQueryDto): Promise<PaginatedUsersResponseDto> {
@@ -128,9 +149,9 @@ export class UsersService {
    * can call this idempotently on every sign-in. A duplicate *handle* on a
    * different wallet is a genuine conflict and is surfaced as 409.
    *
-   * No user_score_profile row is written here: `score_profile` stays NULL.
-   * The leaderboard sums awarded_points off user_game_answer directly, so
-   * nothing in the live loop depends on a profile row existing.
+   * Every user gets a `user_score_profile` row here. The leaderboard ranks on
+   * `user_score_profile.total_points`, so a user without one is invisible at
+   * the bottom of the board rather than simply unranked.
    */
   async create(dto: CreateUserDto): Promise<UserResponseDto> {
     const existing = await this.usersRepo.findOne({
@@ -140,7 +161,12 @@ export class UsersService {
       this.logger.log(
         `Wallet ${dto.wallet_address} already registered — returning existing user`,
       );
-      return this.toResponseDto(existing);
+      // Repairs users created before profiles existed; no-op otherwise.
+      await this.scoreProfiles.ensureUserProfile(existing.id);
+      return this.toResponseDto(
+        (await this.usersRepo.findOne({ where: { id: existing.id } })) ??
+          existing,
+      );
     }
 
     for (let attempt = 0; attempt < SHARE_CODE_ATTEMPTS; attempt++) {
@@ -155,8 +181,13 @@ export class UsersService {
 
       try {
         const saved = await this.usersRepo.save(user);
-        // Re-read so DB-side defaults (created_at) are authoritative rather
-        // than whatever the INSERT happened to return.
+        // Must follow the INSERT: `user.score_profile` FKs to the profile row,
+        // so the profile has to exist before the user can point at it — the
+        // reversed FK direction makes this two statements, not one.
+        await this.scoreProfiles.ensureUserProfile(saved.id);
+        // Re-read so DB-side defaults (created_at) and the freshly linked
+        // score_profile are authoritative rather than whatever the INSERT
+        // happened to return.
         const row = await this.usersRepo.findOne({ where: { id: saved.id } });
         return this.toResponseDto(row ?? saved);
       } catch (err) {
@@ -204,25 +235,38 @@ export class UsersService {
     return this.toResponseDto(user);
   }
 
+  /**
+   * A user that exists always has a profile: one is created at registration,
+   * and a legacy user without one gets it repaired here rather than 404-ing.
+   * "No profile yet" is never a meaningful answer to this question — a fresh
+   * profile reads as zeroes, which is exactly the truth.
+   *
+   * `total_points` and `games_played` are DERIVED from `user_game_answer` /
+   * `user_game`, not read from the counter columns, so this endpoint and the
+   * leaderboard can never disagree about the same player. The profile ROW is
+   * still ensured — its `id` is the wire contract and `user.score_profile`
+   * FKs to it — but its stored totals are not what is served here.
+   * See the tradeoff block in `leaderboard.service.ts`.
+   */
   async findScoreProfile(userId: string): Promise<UserScoreProfileResponseDto> {
     const user = await this.findUserOrThrow(userId);
-    if (!user.scoreProfile) {
-      throw new NotFoundException(`User ${userId} has no score profile`);
-    }
+    const profileId =
+      user.scoreProfile ?? (await this.scoreProfiles.ensureUserProfile(userId));
 
     const profile = await this.scoreProfilesRepo.findOne({
-      where: { id: user.scoreProfile },
+      where: { id: profileId },
     });
     if (!profile) {
       throw new NotFoundException(`Score profile for user ${userId} not found`);
     }
 
+    const { totalPoints, gamesPlayed } =
+      await this.scoreAggregates.userTotals(userId);
+
     return {
       id: profile.id,
-      // total_points is bigint — the pg driver returns it as a string.
-      // Coerce, or the wire type silently flips from number to string.
-      total_points: Number(profile.totalPoints),
-      games_played: profile.gamesPlayed,
+      total_points: totalPoints,
+      games_played: gamesPlayed,
       updated_at: toIso(profile.updatedAt),
     };
   }

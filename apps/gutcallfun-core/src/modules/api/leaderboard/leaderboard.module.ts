@@ -1,12 +1,11 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { UserEntity } from '../../../models/account/user.entity';
 import { LeaderboardController } from './leaderboard.controller';
 import { LeaderboardService } from './leaderboard.service';
 
-// DB-backed: ranks real users by score-profile total.
+// Derived from user_game_answer at query time — no entity repositories needed,
+// the service works off the DataSource directly. See leaderboard.service.ts
+// for why nothing here ranks on the *_score_profile counters.
 @Module({
-  imports: [TypeOrmModule.forFeature([UserEntity])],
   controllers: [LeaderboardController],
   providers: [LeaderboardService],
   exports: [LeaderboardService],

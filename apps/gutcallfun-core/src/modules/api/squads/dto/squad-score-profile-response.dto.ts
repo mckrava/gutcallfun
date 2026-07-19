@@ -13,10 +13,30 @@ export class SquadScoreProfileResponseDto {
     type: 'integer',
     example: 400,
     description:
-      'Postgres bigint column. The mock returns a JSON integer; Phase 5 must coerce the pg ' +
-      "driver's string bigint return into a number so this wire type does not change.",
+      'SUM of points earned by members while representing this squad. Derived ' +
+      'from user_game_answer joined through user_game.squad_id — NOT the sum of ' +
+      "members' lifetime totals, since a user can play for several squads.",
   })
   total_points: number;
+
+  @ApiProperty({
+    type: 'integer',
+    example: 80,
+    description:
+      "The squad's standing: total_points averaged over members who have played " +
+      'at least one game FOR this squad (players-only denominator, so roster size ' +
+      'cannot dilute the score). Rounded to an integer.',
+  })
+  avg_points: number;
+
+  @ApiProperty({
+    type: 'integer',
+    example: 5,
+    description:
+      'Denominator behind avg_points — members who have played at least one game ' +
+      'for this squad. Not the roster size.',
+  })
+  players_count: number;
 
   @ApiProperty({ type: 'integer', example: 6 })
   games_played: number;

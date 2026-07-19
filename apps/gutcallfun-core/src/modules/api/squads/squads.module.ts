@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { SquadEntity } from '../../../models/squad/squad.entity';
 import { SquadParticipantEntity } from '../../../models/squad/squad-participant.entity';
 import { UserScoreProfileEntity } from '../../../models/account/user-score-profile.entity';
+import { SquadScoreProfileEntity } from '../../../models/squad/squad-score-profile.entity';
 import { SquadsController } from './squads.controller';
 import { SquadsService } from './squads.service';
 
@@ -14,6 +15,7 @@ import { SquadsService } from './squads.service';
       SquadEntity,
       SquadParticipantEntity,
       UserScoreProfileEntity,
+      SquadScoreProfileEntity,
     ]),
   ],
   controllers: [SquadsController],

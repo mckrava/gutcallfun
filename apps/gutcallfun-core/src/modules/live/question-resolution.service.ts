@@ -7,6 +7,7 @@ import { UserGameAnswerEntity } from '../../models/game/user-game-answer.entity'
 import { QuestionState } from '../../models/game/enums';
 import { LiveBroadcastEmitter } from './events/live-broadcast.emitter';
 import { LiveWindowRegistry, OpenWindow } from './live-window.registry';
+import { ScoreProfileService } from '../scoring/score-profile.service';
 import {
   GOAL_CONFIRM_GRACE_MS,
   GOAL_CONFIRM_POLL_MS,
@@ -49,6 +50,7 @@ export class QuestionResolutionService implements OnModuleDestroy {
     private readonly scheduler: SchedulerRegistry,
     private readonly registry: LiveWindowRegistry,
     private readonly broadcast: LiveBroadcastEmitter,
+    private readonly scoreProfiles: ScoreProfileService,
   ) {}
 
   /**
@@ -314,10 +316,21 @@ export class QuestionResolutionService implements OnModuleDestroy {
         )
         .execute();
 
-      // Deliberately NOT written here: `user_score_profile`. The leaderboard
-      // (LDRB-01) is computed as SUM(awarded_points) grouped by user directly
-      // from `user_game_answer`, so no denormalized total is required, and no
-      // decision defines what those profile rows should contain.
+      // Fold the awards just written into user_score_profile and, for players
+      // representing a squad in this game, squad_score_profile. Same manager,
+      // same transaction as the two UPDATEs above, for two reasons:
+      //  - It re-reads the awards it is crediting. Outside this transaction it
+      //    would read either stale or uncommitted values depending on timing.
+      //  - It sums EVERY awarded answer on the question, so on its own it is
+      //    not idempotent. What makes it safe is the `state IN (open,
+      //    pending_confirmation)` guard above (RESL-03): a second resolution
+      //    of the same question affects zero rows and returns at that early
+      //    `return null`, never reaching this line.
+      await this.scoreProfiles.applyResolutionPoints(
+        manager,
+        window.questionId,
+        window.gameId,
+      );
 
       return {
         winner: {
