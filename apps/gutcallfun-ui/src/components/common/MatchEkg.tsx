@@ -1,15 +1,51 @@
 import { EKG } from "@/state/constants";
 import type { HistEntry } from "@/state/types";
 
-// Ported verbatim from GutCallApp.buildEkg().
-export function MatchEkg({ hist, t1 = "BRA", t2 = "ARG" }: { hist: HistEntry[]; t1?: string; t2?: string }) {
+interface PressurePoint {
+  minute: number;
+  value: number;
+}
+interface GoalPoint {
+  minute: number | null;
+  participant: number;
+}
+
+// Ported verbatim from GutCallApp.buildEkg(), extended with optional
+// real-data props. `pressure` and `goals` are OPTIONAL: when absent (or
+// pressure is empty) the component falls back to the EKG constant / the two
+// hardcoded goal dots — that fallback is the SSR/first-render baseline, and
+// removing it reintroduces a hydration mismatch (server has no data yet,
+// client does).
+export function MatchEkg({
+  hist,
+  t1 = "BRA",
+  t2 = "ARG",
+  pressure,
+  goals,
+}: {
+  hist: HistEntry[];
+  t1?: string;
+  t2?: string;
+  pressure?: PressurePoint[];
+  goals?: GoalPoint[];
+}) {
   const W = 316,
     H = 138,
     cy = H / 2,
     sc = cy - 14;
-  const x = (m: number) => 4 + (m / 95) * (W - 8);
+  // Clamp so a stoppage-time minute cannot draw outside the viewBox.
+  const x = (m: number) => 4 + (Math.min(Math.max(m, 0), 95) / 95) * (W - 8);
   const y = (t: number) => cy - t * sc;
-  const pts = EKG.map((p) => x(p[0]).toFixed(1) + "," + y(p[1]).toFixed(1)).join(" ");
+
+  const hasRealPressure = pressure != null && pressure.length > 0;
+  const pts = (hasRealPressure ? pressure : EKG.map(([minute, value]) => ({ minute, value })))
+    .map((p) => x(p.minute).toFixed(1) + "," + y(p.value).toFixed(1))
+    .join(" ");
+
+  // A null minute reaching x() produces NaN in `points` and blanks the whole
+  // chart silently — filter it out BEFORE mapping to coordinates.
+  const realGoals = goals?.filter((g): g is { minute: number; participant: number } => g.minute != null);
+  const realHist = hist.filter((h) => h.min != null && !Number.isNaN(h.min));
 
   return (
     <svg viewBox={"0 0 " + W + " " + H} width="100%" style={{ display: "block" }}>
@@ -33,9 +69,25 @@ export function MatchEkg({ hist, t1 = "BRA", t2 = "ARG" }: { hist: HistEntry[]; 
         style={{ filter: "blur(4px)" }}
       />
       <polyline points={pts} fill="none" stroke="#BFD6F5" strokeWidth={2.2} strokeLinejoin="round" strokeLinecap="round" />
-      <circle cx={x(12.6)} cy={y(1)} r={4.5} fill="#FFD84D" stroke="#0A1120" strokeWidth={1.5} />
-      <circle cx={x(58)} cy={y(-1)} r={4.5} fill="#7FB8E8" stroke="#0A1120" strokeWidth={1.5} />
-      {hist.map((h, i) => {
+      {realGoals ? (
+        realGoals.map((g, i) => (
+          <circle
+            key={i}
+            cx={x(g.minute)}
+            cy={y(g.participant === 2 ? -1 : 1)}
+            r={4.5}
+            fill={g.participant === 2 ? "#7FB8E8" : "#FFD84D"}
+            stroke="#0A1120"
+            strokeWidth={1.5}
+          />
+        ))
+      ) : (
+        <>
+          <circle cx={x(12.6)} cy={y(1)} r={4.5} fill="#FFD84D" stroke="#0A1120" strokeWidth={1.5} />
+          <circle cx={x(58)} cy={y(-1)} r={4.5} fill="#7FB8E8" stroke="#0A1120" strokeWidth={1.5} />
+        </>
+      )}
+      {realHist.map((h, i) => {
         const good = h.earned > 0;
         return (
           <g key={i}>

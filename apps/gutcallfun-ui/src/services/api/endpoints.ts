@@ -22,6 +22,7 @@ import type {
   PaginationQuery,
   Question,
   QuestionOutcome,
+  Recap,
   SeqPage,
   Squad,
   SquadParticipant,
@@ -57,6 +58,7 @@ export const gamesApi = {
     http.get<Question[]>(`/games/${gameId}/questions`, query),
   myParticipation: (gameId: number) =>
     http.get<MyGameParticipation>(`/games/${gameId}/me`),
+  recap: (gameId: number) => http.get<Recap>(`/games/${gameId}/recap`),
   participants: (gameId: number, query?: PaginationQuery) =>
     http.get<Paginated<GameParticipant>>(`/games/${gameId}/participants`, query),
   join: (gameId: number, body: JoinGameBody) => http.post<UserGame>(`/games/${gameId}/join`, body),

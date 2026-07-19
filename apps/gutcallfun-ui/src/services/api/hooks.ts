@@ -59,6 +59,17 @@ export function useMyGameParticipation(gameId: number | null, options?: { enable
     enabled: gameId != null && (options?.enabled ?? true),
   });
 }
+// The post-match recap (score/me/ranks/goals/calls/pressure), assembled
+// entirely from Postgres for a FINISHED game. Auth-guarded — `enabled` must
+// be derived from having a session, or an unauthenticated fetch is a
+// guaranteed 401 that (per the leaderboard follow-up) never gets retried.
+export function useGameRecap(gameId: number | null, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: queryKeys.games.recap(gameId ?? -1),
+    queryFn: () => gamesApi.recap(gameId as number),
+    enabled: gameId != null && (options?.enabled ?? true),
+  });
+}
 export function useJoinGame(gameId: number) {
   const qc = useQueryClient();
   return useMutation({
