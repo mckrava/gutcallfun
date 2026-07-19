@@ -93,7 +93,9 @@ export class GamesController {
   @Public()
   @Get(':game_id/participants')
   @ApiOkResponse({ type: PaginatedGameParticipantsResponseDto })
-  @ApiNotFoundResponse({ description: 'No game exists with the given game_id.' })
+  @ApiNotFoundResponse({
+    description: 'No game exists with the given game_id.',
+  })
   findParticipants(
     @Param('game_id', ParseIntPipe) gameId: number,
     @Query() query: PaginationQueryDto,

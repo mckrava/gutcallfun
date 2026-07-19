@@ -114,7 +114,10 @@ export class LeaderboardService {
 
     const rows = await this.dataSource.query<
       { rank: string; total_rows: string }[]
-    >(sql, [gameId, squadId, userId].filter((p) => p !== null));
+    >(
+      sql,
+      [gameId, squadId, userId].filter((p) => p !== null),
+    );
 
     if (rows.length === 0) return null;
 

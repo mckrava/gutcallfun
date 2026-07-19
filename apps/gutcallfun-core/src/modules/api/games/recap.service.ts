@@ -260,8 +260,7 @@ function deriveMinute(
 
   const inner =
     (payload as { Update?: Record<string, unknown> }).Update ?? payload;
-  const clock = (inner as { Clock?: { Seconds?: unknown } } | undefined)
-    ?.Clock;
+  const clock = (inner as { Clock?: { Seconds?: unknown } } | undefined)?.Clock;
   const seconds = clock?.Seconds;
 
   let minutes: number | null = null;
@@ -346,9 +345,7 @@ function buildMeDto(calls: MappedCall[], squad: SquadIdentityRow): RecapMeDto {
   ).length;
   const hit_rate = resolved > 0 ? successfulCount / resolved : 0;
 
-  const scoringCalls = resolvedCalls.filter(
-    (c) => (c.awarded_points ?? 0) > 0,
-  );
+  const scoringCalls = resolvedCalls.filter((c) => (c.awarded_points ?? 0) > 0);
   let best_call: RecapBestCallDto | null = null;
   if (scoringCalls.length > 0) {
     const best = scoringCalls.reduce((a, b) => {

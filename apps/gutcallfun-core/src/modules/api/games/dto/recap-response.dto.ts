@@ -75,7 +75,8 @@ export class RecapMeDto {
   @ApiProperty({
     type: 'integer',
     example: 3,
-    description: 'Answers whose picked outcome exactly matched the resolved outcome.',
+    description:
+      'Answers whose picked outcome exactly matched the resolved outcome.',
   })
   exact: number;
 
@@ -125,7 +126,8 @@ export class RecapRanksDto {
   @ApiProperty({
     type: () => RecapRankDto,
     nullable: true,
-    description: 'Null when the caller joined this game solo (user_game.squad_id IS NULL).',
+    description:
+      'Null when the caller joined this game solo (user_game.squad_id IS NULL).',
   })
   squad: RecapRankDto | null;
 }

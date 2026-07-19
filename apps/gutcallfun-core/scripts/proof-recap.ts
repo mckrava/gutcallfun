@@ -23,11 +23,9 @@ let failed = 0;
 
 function check(label: string, condition: boolean): void {
   if (condition) {
-    // eslint-disable-next-line no-console
     console.log(`  PASS: ${label}`);
     passed++;
   } else {
-    // eslint-disable-next-line no-console
     console.error(`  FAIL: ${label}`);
     failed++;
   }
@@ -97,7 +95,16 @@ async function main(): Promise<void> {
           team1_jersey_color, team2_jersey_color, competition, score_p1, score_p2)
        VALUES ($1, 'finished', true, $2, $3, $4, $5, $6, $7, $8)
        RETURNING id`,
-      [555001, 'Brazil', 'Argentina', '#FFD700', '#75AADB', 'World Cup 2026', 1, 0],
+      [
+        555001,
+        'Brazil',
+        'Argentina',
+        '#FFD700',
+        '#75AADB',
+        'World Cup 2026',
+        1,
+        0,
+      ],
     )) as { id: number }[];
     const gameId = gameRows[0].id;
 
@@ -172,7 +179,12 @@ async function main(): Promise<void> {
     // Possession events across all four stages for both participants, split
     // into two clusters (minutes 0-29 for participant1, 45-74 for
     // participant2) so bucket averages cannot cancel out.
-    const stages = ['safe_possession', 'attack_possession', 'danger_possession', 'high_danger_possession'];
+    const stages = [
+      'safe_possession',
+      'attack_possession',
+      'danger_possession',
+      'high_danger_possession',
+    ];
     let seq = 10;
     for (let i = 0; i < 60; i++) {
       seq++;
@@ -238,7 +250,12 @@ async function main(): Promise<void> {
     ] as const) {
       await queryRunner.query(
         `INSERT INTO "user" (id, wallet_address, share_code, handle) VALUES ($1, $2, $3, $4)`,
-        [id, `wallet_${id}`, id.replace(/-/g, '').slice(0, 8).toUpperCase(), handle],
+        [
+          id,
+          `wallet_${id}`,
+          id.replace(/-/g, '').slice(0, 8).toUpperCase(),
+          handle,
+        ],
       );
     }
 
@@ -269,7 +286,16 @@ async function main(): Promise<void> {
         `INSERT INTO game_question
            (id, game_id, trigger_event_id, content, participant, state, answer_window_ttl, expires_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [opts.id, gameId, opts.triggerEventId, opts.content, 1, opts.state, 5, expiresAt],
+        [
+          opts.id,
+          gameId,
+          opts.triggerEventId,
+          opts.content,
+          1,
+          opts.state,
+          5,
+          expiresAt,
+        ],
       );
     }
 
@@ -286,10 +312,10 @@ async function main(): Promise<void> {
       );
       if (resolvedKey) {
         const resolvedOptionId = resolvedKey === 'shot' ? shotId : fizzlesId;
-        await queryRunner.query(`UPDATE game_question SET resolved_option_id = $1 WHERE id = $2`, [
-          resolvedOptionId,
-          questionId,
-        ]);
+        await queryRunner.query(
+          `UPDATE game_question SET resolved_option_id = $1 WHERE id = $2`,
+          [resolvedOptionId, questionId],
+        );
       }
       return { shot: shotId, fizzles: fizzlesId };
     }
@@ -412,7 +438,7 @@ async function main(): Promise<void> {
     // ------------------------------------------------------------------
     // Checks
     // ------------------------------------------------------------------
-    // eslint-disable-next-line no-console
+
     console.log('Proof: GET /games/:game_id/recap\n');
 
     const recap = await recapService.getRecap(gameId, callerId);
@@ -427,22 +453,38 @@ async function main(): Promise<void> {
     );
 
     // 2. Wrapped Update.Clock.Seconds -> minute.
-    const callWithTrigger = recap.calls.find((c) => c.question_content === 'Will this attack end in a shot?');
-    check('2. wrapped Update.Clock.Seconds yields the right minute', callWithTrigger?.minute === 25);
+    const callWithTrigger = recap.calls.find(
+      (c) => c.question_content === 'Will this attack end in a shot?',
+    );
+    check(
+      '2. wrapped Update.Clock.Seconds yields the right minute',
+      callWithTrigger?.minute === 25,
+    );
 
     // 3. Bare Clock.Seconds -> minute.
-    const bareCall = recap.calls.find((c) => c.question_content === 'bare-clock check');
-    check('3. bare Clock.Seconds yields the right minute', bareCall?.minute === 40);
+    const bareCall = recap.calls.find(
+      (c) => c.question_content === 'bare-clock check',
+    );
+    check(
+      '3. bare Clock.Seconds yields the right minute',
+      bareCall?.minute === 40,
+    );
 
     // 4. No-Clock event -> feed_ts anchor fallback, plausible minute.
-    const noClockCall = recap.calls.find((c) => c.question_content === 'no-clock check');
+    const noClockCall = recap.calls.find(
+      (c) => c.question_content === 'no-clock check',
+    );
     check(
       '4. no-Clock event falls back to feed_ts anchor with a plausible minute',
-      noClockCall != null && noClockCall.minute !== null && Math.abs(noClockCall.minute - 50) < 1,
+      noClockCall != null &&
+        noClockCall.minute !== null &&
+        Math.abs(noClockCall.minute - 50) < 1,
     );
 
     // 5. trigger_event_id NULL -> minute strictly null.
-    const noTriggerCall = recap.calls.find((c) => c.question_content === 'Fizzle or danger?');
+    const noTriggerCall = recap.calls.find(
+      (c) => c.question_content === 'Fizzle or danger?',
+    );
     check(
       '5. trigger_event_id NULL yields minute strictly null (not 0)',
       noTriggerCall !== undefined && noTriggerCall.minute === null,
@@ -465,12 +507,17 @@ async function main(): Promise<void> {
     )) as { id: number }[];
     const emptyGameId = emptyGameRows[0].id;
     const emptyRecap = await recapService.getRecap(emptyGameId, callerId);
-    check('7. zero possession rows yields an empty pressure array, not a throw', emptyRecap.pressure.length === 0);
+    check(
+      '7. zero possession rows yields an empty pressure array, not a throw',
+      emptyRecap.pressure.length === 0,
+    );
 
     // 8. The doubled goal yields exactly ONE entry with the payload's running score.
     check(
       '8. doubled goal (confirmed false then true) yields exactly one entry with correct score',
-      recap.goals.length === 1 && recap.goals[0].score_p1 === 1 && recap.goals[0].score_p2 === 0,
+      recap.goals.length === 1 &&
+        recap.goals[0].score_p1 === 1 &&
+        recap.goals[0].score_p2 === 0,
     );
 
     // 9. me aggregates match hand-computed fixture values; best_call scores highest.
@@ -489,7 +536,10 @@ async function main(): Promise<void> {
 
     // 10. hit_rate is 0 for a caller with nothing resolved.
     const freshRecap = await recapService.getRecap(gameId, freshUserId);
-    check('10. hit_rate is 0 for a caller with nothing resolved', freshRecap.me.hit_rate === 0);
+    check(
+      '10. hit_rate is 0 for a caller with nothing resolved',
+      freshRecap.me.hit_rate === 0,
+    );
 
     // 11. ranks.squad null for the solo joiner, non-null for the squad member;
     //     ranks.global.of equals the number of users in scope.
@@ -510,7 +560,7 @@ async function main(): Promise<void> {
     );
     const boardEntry = board.items.find((i) => i.user_id === callerId);
     check(
-      "12. ranks.global.rank agrees with LeaderboardService.findAll (anti-drift)",
+      '12. ranks.global.rank agrees with LeaderboardService.findAll (anti-drift)',
       boardEntry !== undefined && recap.ranks.global?.rank === boardEntry.rank,
     );
 
@@ -538,7 +588,6 @@ async function main(): Promise<void> {
     }
     check('15. unknown game_id throws NotFoundException', threw);
 
-    // eslint-disable-next-line no-console
     console.log(`\n${passed}/${passed + failed} checks passing`);
   } finally {
     await queryRunner.rollbackTransaction();
@@ -552,7 +601,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((e) => {
-  // eslint-disable-next-line no-console
   console.error(e);
   process.exit(1);
 });

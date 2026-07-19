@@ -15,7 +15,10 @@ import { RecapService } from './recap.service';
  * output (bigint/numeric columns arriving as strings).
  */
 
-type Rule = { match: (sql: string, params: unknown[]) => boolean; rows: unknown[] };
+type Rule = {
+  match: (sql: string, params: unknown[]) => boolean;
+  rows: unknown[];
+};
 
 const ANCHOR = new Date('2026-07-18T15:00:00.000Z');
 
@@ -73,7 +76,10 @@ function buildDataSource(overrides: Partial<Record<string, unknown[]>> = {}) {
     { match: (s) => isGameScopedRank(s), rows: overrides.gameRank ?? [] },
     { match: (s) => isGlobalRank(s), rows: overrides.globalRank ?? [] },
     { match: (s) => isGameRow(s), rows: overrides.game ?? [defaultGameRow] },
-    { match: (s) => isAnchorRow(s), rows: overrides.anchor ?? [{ anchor: ANCHOR }] },
+    {
+      match: (s) => isAnchorRow(s),
+      rows: overrides.anchor ?? [{ anchor: ANCHOR }],
+    },
     {
       match: (s) => isSquadRow(s),
       rows: overrides.squad ?? [{ squad_id: null, squad_name: null }],
@@ -84,11 +90,11 @@ function buildDataSource(overrides: Partial<Record<string, unknown[]>> = {}) {
   ];
 
   const query = jest.fn(
-    async (sql: string, params: unknown[] = []): Promise<unknown[]> => {
+    (sql: string, params: unknown[] = []): Promise<unknown[]> => {
       for (const rule of rules) {
-        if (rule.match(sql, params)) return rule.rows;
+        if (rule.match(sql, params)) return Promise.resolve(rule.rows);
       }
-      return [];
+      return Promise.resolve([]);
     },
   );
   return { ds: { query } as unknown as DataSource, query };
@@ -100,13 +106,17 @@ function makeService(overrides: Partial<Record<string, unknown[]>> = {}) {
   return new RecapService(ds, leaderboard);
 }
 
-const wrapped = (seconds: number) => ({ Update: { Clock: { Seconds: seconds } } });
+const wrapped = (seconds: number) => ({
+  Update: { Clock: { Seconds: seconds } },
+});
 const bare = (seconds: number) => ({ Clock: { Seconds: seconds } });
 
 describe('RecapService', () => {
   it('constructs with only a DataSource mock (no in-memory registry dependency)', () => {
     const { ds } = buildDataSource();
-    expect(() => new RecapService(ds, new LeaderboardService(ds))).not.toThrow();
+    expect(
+      () => new RecapService(ds, new LeaderboardService(ds)),
+    ).not.toThrow();
   });
 
   it('throws NotFoundException for an unknown game_id', async () => {
