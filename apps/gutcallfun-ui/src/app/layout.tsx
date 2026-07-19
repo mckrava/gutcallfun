@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AppProvider } from "@/state/AppProvider";
 import { AppFrame } from "@/components/shell/AppFrame";
+import { SessionRestore } from "@/services/auth/SessionRestore";
+import { Providers } from "./providers";
 
 export const metadata: Metadata = {
   title: "GutCall — live football, predict for fun",
@@ -23,9 +25,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <AppProvider>
-          <AppFrame>{children}</AppFrame>
-        </AppProvider>
+        <Providers>
+          <AppProvider>
+            <SessionRestore />
+            <AppFrame>{children}</AppFrame>
+          </AppProvider>
+        </Providers>
       </body>
     </html>
   );

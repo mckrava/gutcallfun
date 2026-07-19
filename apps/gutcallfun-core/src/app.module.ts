@@ -7,6 +7,7 @@ import { IngestModule } from './modules/ingest/ingest.module';
 import { ApiModule } from './modules/api/api.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
 import { LiveModule } from './modules/live/live.module';
+import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { LiveModule } from './modules/live/live.module';
     IngestModule,
     ApiModule,
     RealtimeModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

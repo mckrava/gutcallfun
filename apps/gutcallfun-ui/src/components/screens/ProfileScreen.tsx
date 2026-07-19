@@ -1,12 +1,14 @@
 "use client";
 
 import { useApp } from "@/state/context";
+import { useWalletAuth } from "@/services/auth/useWalletAuth";
 import { Fragment } from "react";
 import SolanaWhite from "@/icons/SolanaWhite.svg";
 
 // Ported verbatim from the "Profile" screen in the old template.
 export function ProfileScreen() {
   const vm = useApp();
+  const { signOut, busy } = useWalletAuth();
   return (
     <div data-screen-label="Profile" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: "24px 24px 92px", overflowY: "auto" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 15 }}>
@@ -18,7 +20,7 @@ export function ProfileScreen() {
             <span style={{ fontFamily: "ui-monospace,Menlo,monospace", fontSize: 11, color: "#CDBBFF", letterSpacing: ".3px" }}>7Xn9…4pQr</span>
           </div>
         </div>
-        <button onClick={vm.logout} style={{ flexShrink: 0, alignSelf: "center", background: "rgba(255,77,94,.1)", border: "1px solid rgba(255,77,94,.32)", color: "#FF6B78", fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 12, letterSpacing: ".8px", borderRadius: 10, padding: "7px 11px", cursor: "pointer" }}>LOG OUT</button>
+        <button onClick={() => void signOut()} disabled={busy} style={{ flexShrink: 0, alignSelf: "center", background: "rgba(255,77,94,.1)", border: "1px solid rgba(255,77,94,.32)", color: "#FF6B78", fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 12, letterSpacing: ".8px", borderRadius: 10, padding: "7px 11px", cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1 }}>{busy ? "…" : "LOG OUT"}</button>
       </div>
 
       <div style={{ marginTop: 22, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>

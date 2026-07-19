@@ -34,14 +34,6 @@ export interface ActiveWindow {
   pick: OutcomeKey | null;
 }
 
-export interface ResultState {
-  outcome: OutcomeKey;
-  pick: OutcomeKey | null;
-  earned: number;
-  correct: boolean;
-  squadLine: string;
-}
-
 export interface SlamState {
   word: string;
   sub: string;
@@ -71,13 +63,10 @@ export interface AppState {
   attTeam: TeamKey | null;
   comm: CommLine[];
   win: ActiveWindow | null;
-  res: ResultState | null;
   beatsOn: boolean;
   pts: number;
   dispPts: number;
   squad: LocalSquadMember[];
-  lb: boolean;
-  lbTab: "squad" | "global";
   flash: TeamKey | "wh" | null;
   slam: SlamState | null;
   shake: boolean;
@@ -120,20 +109,6 @@ export interface WinOpt {
   bd: string;
   op: string;
   ptsCol: string;
-}
-
-export interface LbRow {
-  rank: string;
-  rankCol: string;
-  ini: string;
-  ring: string;
-  name: string;
-  sub: string;
-  pts: string;
-  mov: string;
-  movCol: string;
-  bg: string;
-  bd: string;
 }
 
 export interface SquadCard {
@@ -402,15 +377,6 @@ export interface ViewModel {
   reactOpts: ReactOpt[];
   dispPts: string;
   rankChip: string;
-  openLb: Handler;
-
-  // leaderboard overlay
-  lbOpen: boolean;
-  closeLb: Handler;
-  tabSquad: Handler;
-  tabGlobal: Handler;
-  tabSqBg: string; tabSqCol: string; tabGlBg: string; tabGlCol: string;
-  lbRows: LbRow[];
 
   // betting window overlay
   winOpen: boolean;
@@ -427,18 +393,6 @@ export interface ViewModel {
   winMove: PointerHandler;
   winUp: PointerHandler;
   winDragT: string;
-
-  // resolution overlay
-  resOpen: boolean;
-  resReached: string;
-  resReachedCol: string;
-  resGlow: string;
-  resPickLine: string;
-  resPts: string;
-  resPtsCol: string;
-  resTitle: string;
-  resSquadLine: string;
-  dismissRes: Handler;
 
   // flash + slam overlays
   flashOn: boolean;

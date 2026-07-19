@@ -10,7 +10,9 @@ const UNKNOWN_SQUAD_ID = 999999;
 // squad 1002 in squads.fixtures.ts deliberately has zero participants.
 const EMPTY_SQUAD_ID = 1002;
 
-function baseListQuery(overrides: Partial<ListSquadsQueryDto> = {}): ListSquadsQueryDto {
+function baseListQuery(
+  overrides: Partial<ListSquadsQueryDto> = {},
+): ListSquadsQueryDto {
   const query = new ListSquadsQueryDto();
   query.limit = 20;
   query.offset = 0;
@@ -49,7 +51,10 @@ describe('SquadsService', () => {
   });
 
   it('findParticipants on the empty fixture squad returns an empty items array with total 0', () => {
-    const result = service.findParticipants(EMPTY_SQUAD_ID, basePaginationQuery());
+    const result = service.findParticipants(
+      EMPTY_SQUAD_ID,
+      basePaginationQuery(),
+    );
     expect(result.items).toEqual([]);
     expect(result.total).toBe(0);
   });

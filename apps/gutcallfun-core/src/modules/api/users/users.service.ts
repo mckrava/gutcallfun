@@ -1,4 +1,9 @@
-import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomInt } from 'node:crypto';
 import { Repository } from 'typeorm';
@@ -6,7 +11,10 @@ import { UserEntity } from '../../../models/account/user.entity';
 import { UserScoreProfileEntity } from '../../../models/account/user-score-profile.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { ListUsersQueryDto } from './dto/list-users-query.dto';
-import { PaginatedUsersResponseDto, UserResponseDto } from './dto/user-response.dto';
+import {
+  PaginatedUsersResponseDto,
+  UserResponseDto,
+} from './dto/user-response.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserScoreProfileResponseDto } from './dto/user-score-profile-response.dto';
 
@@ -36,7 +44,9 @@ function pgErrorOf(err: unknown): { code?: string; constraint?: string } {
 
 const isUniqueViolation = (err: unknown, constraint?: string): boolean => {
   const { code, constraint: actual } = pgErrorOf(err);
-  return code === '23505' && (constraint === undefined || actual === constraint);
+  return (
+    code === '23505' && (constraint === undefined || actual === constraint)
+  );
 };
 
 /** timestamptz columns arrive as Date from pg; the wire contract is an ISO string. */
@@ -61,7 +71,9 @@ export class UsersService {
     const qb = this.usersRepo.createQueryBuilder('u');
 
     if (query.wallet_address) {
-      qb.andWhere('u.walletAddress = :wallet', { wallet: query.wallet_address });
+      qb.andWhere('u.walletAddress = :wallet', {
+        wallet: query.wallet_address,
+      });
     }
     if (query.handle) {
       qb.andWhere('LOWER(u.handle) LIKE :handle', {
@@ -78,7 +90,10 @@ export class UsersService {
       );
     }
 
-    qb.orderBy('u.createdAt', 'ASC').addOrderBy('u.id', 'ASC').skip(offset).take(limit);
+    qb.orderBy('u.createdAt', 'ASC')
+      .addOrderBy('u.id', 'ASC')
+      .skip(offset)
+      .take(limit);
 
     const [rows, total] = await qb.getManyAndCount();
 
@@ -92,6 +107,16 @@ export class UsersService {
 
   async findOne(userId: string): Promise<UserResponseDto> {
     return this.toResponseDto(await this.findUserOrThrow(userId));
+  }
+
+  /**
+   * Wallet lookup for the auth module (AUTH-03: wallet_address is read here, not
+   * by product endpoints). Returns null rather than throwing so sign-in can
+   * branch into first-time registration.
+   */
+  async findByWallet(walletAddress: string): Promise<UserResponseDto | null> {
+    const user = await this.usersRepo.findOne({ where: { walletAddress } });
+    return user ? this.toResponseDto(user) : null;
   }
 
   /**
@@ -135,7 +160,9 @@ export class UsersService {
           continue; // regenerate and retry
         }
         if (isUniqueViolation(err, 'uq_user_handle')) {
-          throw new ConflictException(`Handle "${dto.handle}" is already taken`);
+          throw new ConflictException(
+            `Handle "${dto.handle}" is already taken`,
+          );
         }
         if (isUniqueViolation(err, 'uq_user_wallet')) {
           // Lost a race with a concurrent create for the same wallet.

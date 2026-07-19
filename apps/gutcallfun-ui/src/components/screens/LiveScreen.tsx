@@ -32,8 +32,8 @@ export function LiveScreen() {
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "1px", color: vm.attCol }}>{vm.attText}</div>
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", margin: "10px 2px 4px" }}>
-          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "1px", color: "rgba(255,216,77,.7)" }}>◀ BRA</div>
-          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "1px", color: "rgba(127,184,232,.7)" }}>ARG ▶</div>
+          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "1px", color: "rgba(255,216,77,.7)" }}>◀ BRAZIL</div>
+          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "1px", color: "rgba(127,184,232,.7)" }}>ARGENTINA ▶</div>
         </div>
         <div style={{ position: "relative", height: 16, borderRadius: 8, background: "#0A1120", boxShadow: "inset 0 2px 6px rgba(0,0,0,.6)" }}>
           <div style={{ position: "absolute", top: 2, bottom: 2, left: vm.fillLeft, width: vm.fillWidth, background: vm.fillBg, boxShadow: vm.fillGlow, borderRadius: vm.fillRad }} />

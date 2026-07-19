@@ -11,7 +11,6 @@ import {
   GameResponseDto,
   PaginatedGamesResponseDto,
 } from './dto/game-response.dto';
-import { JoinGameDto } from './dto/join-game.dto';
 import { ListGameEventsQueryDto } from './dto/list-game-events-query.dto';
 import { ListGamesQueryDto } from './dto/list-games-query.dto';
 import { ListQuestionsQueryDto } from './dto/list-questions-query.dto';
@@ -34,8 +33,10 @@ function pgErrorOf(err: unknown): { code?: string; constraint?: string } {
   };
 }
 
-const isUniqueViolation = (err: unknown): boolean => pgErrorOf(err).code === '23505';
-const isForeignKeyViolation = (err: unknown): boolean => pgErrorOf(err).code === '23503';
+const isUniqueViolation = (err: unknown): boolean =>
+  pgErrorOf(err).code === '23505';
+const isForeignKeyViolation = (err: unknown): boolean =>
+  pgErrorOf(err).code === '23503';
 
 /** timestamptz columns arrive as Date from pg; the wire contract is an ISO string. */
 const toIso = (value: Date | string | null | undefined): string | null =>
@@ -65,7 +66,9 @@ export class GamesService {
     if (query.status) {
       // Explicit cast: `status` is the game_status enum, and an untyped bind
       // parameter would leave PG to infer the comparison operand type.
-      qb.andWhere('g.status = CAST(:status AS game_status)', { status: query.status });
+      qb.andWhere('g.status = CAST(:status AS game_status)', {
+        status: query.status,
+      });
     }
     if (query.user_id) {
       qb.andWhere(
@@ -132,7 +135,9 @@ export class GamesService {
       .where('q.gameId = :gameId', { gameId });
 
     if (query.state) {
-      qb.andWhere('q.state = CAST(:state AS question_state)', { state: query.state });
+      qb.andWhere('q.state = CAST(:state AS question_state)', {
+        state: query.state,
+      });
     }
 
     const questions = await qb
@@ -181,11 +186,15 @@ export class GamesService {
    * user_game row instead of erroring, so the demo UI can call join on every
    * page load without special-casing.
    */
-  async join(gameId: number, dto: JoinGameDto): Promise<UserGameResponseDto> {
+  async join(
+    gameId: number,
+    userId: string,
+    squadId: number | null,
+  ): Promise<UserGameResponseDto> {
     await this.findGameOrThrow(gameId);
 
     const existing = await this.userGamesRepo.findOne({
-      where: { gameId, userId: dto.user_id },
+      where: { gameId, userId },
     });
     if (existing) {
       return this.toUserGameDto(existing);
@@ -194,24 +203,24 @@ export class GamesService {
     try {
       await this.userGamesRepo.insert({
         gameId,
-        userId: dto.user_id,
-        squadId: dto.squad_id ?? null,
+        userId,
+        squadId: squadId ?? null,
       });
     } catch (err) {
       if (isForeignKeyViolation(err)) {
         // The only caller-supplied FK is user_id — game_id was validated above.
-        throw new NotFoundException(`User ${dto.user_id} not found`);
+        throw new NotFoundException(`User ${userId} not found`);
       }
       if (!isUniqueViolation(err)) throw err;
       // Lost a race with a concurrent join; fall through and re-read.
     }
 
     const row = await this.userGamesRepo.findOne({
-      where: { gameId, userId: dto.user_id },
+      where: { gameId, userId },
     });
     if (!row) {
       throw new NotFoundException(
-        `Join for user ${dto.user_id} on game ${gameId} could not be read back`,
+        `Join for user ${userId} on game ${gameId} could not be read back`,
       );
     }
     return this.toUserGameDto(row);
@@ -249,7 +258,9 @@ export class GamesService {
     };
   }
 
-  private toOptionDto(option: GameQuestionOptionEntity): QuestionOptionResponseDto {
+  private toOptionDto(
+    option: GameQuestionOptionEntity,
+  ): QuestionOptionResponseDto {
     return {
       id: option.id,
       game_question_id: option.gameQuestionId,

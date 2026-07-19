@@ -10,7 +10,10 @@ export class SquadParticipantResponseDto {
   @ApiProperty({ type: 'integer', example: 1001 })
   squad_id: number;
 
-  @ApiProperty({ example: '00000000-0000-4000-8000-000000000001', format: 'uuid' })
+  @ApiProperty({
+    example: '00000000-0000-4000-8000-000000000001',
+    format: 'uuid',
+  })
   user_id: string;
 
   @ApiProperty({ example: true })

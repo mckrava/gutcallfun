@@ -1,5 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 /**
  * D-02: wallet sign-in is bypassed entirely for this placeholder surface —
@@ -25,7 +31,10 @@ export class CreateUserDto {
   @MaxLength(32)
   handle: string;
 
-  @ApiPropertyOptional({ example: 'seed:mock-avatar-new-player', nullable: true })
+  @ApiPropertyOptional({
+    example: 'seed:mock-avatar-new-player',
+    nullable: true,
+  })
   @IsOptional()
   @IsString()
   image?: string;

@@ -21,7 +21,10 @@ import {
   PaginatedSquadParticipantsResponseDto,
   SquadParticipantResponseDto,
 } from './dto/squad-participant-response.dto';
-import { PaginatedSquadsResponseDto, SquadResponseDto } from './dto/squad-response.dto';
+import {
+  PaginatedSquadsResponseDto,
+  SquadResponseDto,
+} from './dto/squad-response.dto';
 import { SquadScoreProfileResponseDto } from './dto/squad-score-profile-response.dto';
 import { SquadsService } from './squads.service';
 
@@ -75,7 +78,8 @@ export class SquadsController {
   @Get(':squad_id/score-profile')
   @ApiOkResponse({ type: SquadScoreProfileResponseDto })
   @ApiNotFoundResponse({
-    description: 'No squad exists with the given id, or the squad has no score profile yet.',
+    description:
+      'No squad exists with the given id, or the squad has no score profile yet.',
   })
   findScoreProfile(
     @Param('squad_id', ParseIntPipe) squadId: number,

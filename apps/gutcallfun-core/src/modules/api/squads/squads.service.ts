@@ -15,7 +15,10 @@ import {
   PaginatedSquadParticipantsResponseDto,
   SquadParticipantResponseDto,
 } from './dto/squad-participant-response.dto';
-import { PaginatedSquadsResponseDto, SquadResponseDto } from './dto/squad-response.dto';
+import {
+  PaginatedSquadsResponseDto,
+  SquadResponseDto,
+} from './dto/squad-response.dto';
 import { SquadScoreProfileResponseDto } from './dto/squad-score-profile-response.dto';
 
 // Fixed, deterministic defaults for the mock `create()` path (D-04) — no
@@ -52,9 +55,9 @@ export class SquadsService {
 
     if (query.participant_id) {
       const squadIds = new Set(
-        SQUAD_PARTICIPANTS_FIXTURE.filter((p) => p.user_id === query.participant_id).map(
-          (p) => p.squad_id,
-        ),
+        SQUAD_PARTICIPANTS_FIXTURE.filter(
+          (p) => p.user_id === query.participant_id,
+        ).map((p) => p.squad_id),
       );
       filtered = filtered.filter((s) => squadIds.has(s.id));
     }
@@ -70,9 +73,14 @@ export class SquadsService {
     };
   }
 
-  addParticipant(squadId: number, dto: CreateSquadParticipantDto): SquadParticipantResponseDto {
+  addParticipant(
+    squadId: number,
+    dto: CreateSquadParticipantDto,
+  ): SquadParticipantResponseDto {
     this.findSquadOrThrow(squadId);
-    this.logger.log(`Mock-adding participant ${dto.user_id} to squad ${squadId}`);
+    this.logger.log(
+      `Mock-adding participant ${dto.user_id} to squad ${squadId}`,
+    );
     return {
       squad_id: squadId,
       user_id: dto.user_id,
@@ -88,7 +96,9 @@ export class SquadsService {
     query: PaginationQueryDto,
   ): PaginatedSquadParticipantsResponseDto {
     this.findSquadOrThrow(squadId);
-    const filtered = SQUAD_PARTICIPANTS_FIXTURE.filter((p) => p.squad_id === squadId);
+    const filtered = SQUAD_PARTICIPANTS_FIXTURE.filter(
+      (p) => p.squad_id === squadId,
+    );
 
     const total = filtered.length;
     const items = filtered.slice(query.offset, query.offset + query.limit);
@@ -112,9 +122,13 @@ export class SquadsService {
     if (!referencing?.score_profile) {
       throw new NotFoundException(`Squad ${squadId} has no score profile`);
     }
-    const profile = SQUAD_SCORE_PROFILES_FIXTURE.find((p) => p.id === referencing.score_profile);
+    const profile = SQUAD_SCORE_PROFILES_FIXTURE.find(
+      (p) => p.id === referencing.score_profile,
+    );
     if (!profile) {
-      throw new NotFoundException(`Score profile for squad ${squadId} not found`);
+      throw new NotFoundException(
+        `Score profile for squad ${squadId} not found`,
+      );
     }
     return { ...profile };
   }
