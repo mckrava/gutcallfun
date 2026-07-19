@@ -8,7 +8,10 @@ import type { ViewModel } from "./types";
 export interface AppActions {
   setNav: (tab: "matches" | "ranks" | "squad" | "profile" | "rewards") => void;
   enterLive: () => void;
-  goPost: () => void;
+  // Optional gameId: present for a deep-link/card-click to a SPECIFIC game's
+  // recap (/recap/[game_id]); omitted for the bare /recap flow, which keeps
+  // the existing live-or-most-recent-finished heuristic.
+  goPost: (gameId?: number) => void;
   goHome: () => void;
   restart: () => void;
   openSquadDetail: (i: number) => void;

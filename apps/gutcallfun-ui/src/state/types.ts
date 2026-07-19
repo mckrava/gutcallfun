@@ -87,6 +87,10 @@ export interface AppState {
   authStep: AuthStep;
   onbUser: string;
   winDrag?: number;
+  // The specific game a /recap/[game_id] deep link (or a "Your results" card
+  // click) points to. Null on the bare /recap route, where the screen falls
+  // back to guessing the live-or-most-recent-finished game.
+  postGameId: number | null;
 }
 
 // ---- View-model row/item shapes (consumed by components) ----
@@ -218,6 +222,10 @@ export interface MatchSquadRow {
 }
 
 export interface FixtureCard extends Fixture {
+  // The backend game id this card represents. Present on both real-data cards
+  // (adaptGames); the mock FIXTURES.later/.past fallback (no real games,
+  // MatchController.tsx) has no backing game and omits it.
+  gameId?: number;
   onClick: () => void;
   hFlagEl: ReactNode;
   aFlagEl: ReactNode;
@@ -405,6 +413,9 @@ export interface ViewModel {
   isSquadList: boolean;
   isSquadDetail: boolean;
   currentSquadId: number;
+  // Mirrors AppState.postGameId — the specific game /recap/[game_id] resolved
+  // to, or null on the bare /recap route (heuristic fallback applies).
+  postGameId: number | null;
   backSquadList: Handler;
   squadCards: SquadCard[];
   openCreate: Handler;

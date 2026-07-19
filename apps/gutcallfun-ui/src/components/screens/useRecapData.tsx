@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { useAnswers, useCurrentUser, useGameRecap, useGames, useLeaderboard } from "@/services/api/hooks";
+import { useAnswers, useCurrentUser, useGame, useGameRecap, useGames, useLeaderboard } from "@/services/api/hooks";
 import { getRealData, subscribeRealData } from "@/state/realData";
 import { CountryFlag } from "@/components/common/CountryFlag";
 import type { HistEntry } from "@/state/types";
@@ -24,15 +24,23 @@ function sampleNearest(pressure: RecapPressurePoint[], minute: number): number {
   return nearest.value;
 }
 
-// The post-match recap for the game the user just watched (the current live
-// game). All numbers are real: score, my match points, my rank in the squad I
-// dueled, my global rank, and the EKG's call dots (my real answers).
-export function useRecapData() {
+// The post-match recap. When `gameId` is given (a /recap/[game_id] deep link,
+// e.g. clicking a specific past match), that EXACT game is used. Omitted
+// (bare /recap — the live "SEE YOUR MATCH EKG →" flow), the existing
+// live-or-most-recent-finished heuristic applies unchanged. All numbers are
+// real: score, my match points, my rank in the squad I dueled, my global
+// rank, and the EKG's call dots (my real answers).
+export function useRecapData(gameId?: number | null) {
   const me = useCurrentUser();
   const games = useGames({ limit: 100 });
-  const game = games.data?.items.find((g) => g.status === "live")
+  const heuristicGame = games.data?.items.find((g) => g.status === "live")
     ?? games.data?.items.find((g) => g.status === "finished")
     ?? null;
+  // Explicit gameId fetches that EXACT game directly (@Public, no auth) rather
+  // than scanning the 100-item list — correct even on a cold cache (a shared
+  // /recap/[game_id] link opened fresh, before the list has ever loaded).
+  const explicitGame = useGame(gameId ?? null);
+  const game = gameId != null ? (explicitGame.data ?? null) : heuristicGame;
   const answers = useAnswers(game ? { game_id: game.id, limit: 100 } : undefined);
   const leaderboard = useLeaderboard({ limit: 100 });
   // Auth-guarded — gate on having a resolved session, or an unauthenticated

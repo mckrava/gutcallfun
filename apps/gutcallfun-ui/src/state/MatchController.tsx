@@ -72,6 +72,7 @@ export default class MatchController extends React.Component<ControllerProps, Ap
       ],
       flash: null, slam: null, shake: false, homeTab: "upcoming", navTab: "matches", squadView: "list", openSquadIdx: 0, matchSquadIdx: null, myReact: null, squads: SQUADS, modal: null, form: { name: "", emoji: "⚽", code: "", user: "" },
       ended: false, pre: { winner: null, goals: null }, hist: [], toast: null, settled: false, authStep: "connect", onbUser: "",
+      postGameId: null,
     };
   }
 
@@ -141,7 +142,7 @@ export default class MatchController extends React.Component<ControllerProps, Ap
     if (s.authStep === "connect") return "/signin";
     if (s.authStep === "username") return "/onboarding";
     if (s.screen === "live") return "/live";
-    if (s.screen === "post") return "/recap";
+    if (s.screen === "post") return s.postGameId != null ? "/recap/" + s.postGameId : "/recap";
     const tab = s.navTab;
     if (tab === "ranks") return "/rankings";
     if (tab === "squad") return s.squadView === "detail" ? "/squads/" + s.openSquadIdx : "/squads";
@@ -318,16 +319,25 @@ export default class MatchController extends React.Component<ControllerProps, Ap
     }
   };
 
-  goPost = () => {
+  // gameId present -> a deep-link/card-click to a SPECIFIC game's recap
+  // (/recap/[game_id]); omitted -> the bare /recap flow (mock-simulation
+  // "SEE YOUR MATCH EKG" and the existing live-or-most-recent-finished
+  // heuristic in useRecapData, both unchanged).
+  goPost = (gameId?: number) => {
     const s = this.state;
-    if (s.screen === "post") return;
+    const postGameId = gameId ?? null;
+    // Compare postGameId too, not just screen: without this, switching from
+    // one game's recap straight to a different one (e.g. browser back/forward
+    // between two /recap/[game_id] deep links) would no-op on the second call
+    // because screen was already "post".
+    if (s.screen === "post" && s.postGameId === postGameId) return;
     if (!s.settled) {
       const bW = s.pre.winner === "draw" ? 10 : 0;
       const bG = s.pre.goals === "2-3" ? 10 : 0;
       this.setState((st) => ({ settled: true, squad: st.squad.map((q) => (q.n === "Dmytro" || q.n === "Max") ? Object.assign({}, q, { pts: q.pts + 10 }) : q) }));
       if (bW + bG) this.award(bW + bG);
     }
-    this.setState({ screen: "post", auto: false, clock: "90+5'", phase: "FT", score: { br: 1, ar: 1 }, ended: true });
+    this.setState({ screen: "post", postGameId, auto: false, clock: "90+5'", phase: "FT", score: { br: 1, ar: 1 }, ended: true });
   };
 
   restart = () => { this.clearAll(); this._ptsTotal = 0; this._dispNow = 0; this._dispT = 0; this._jitV = 0; this.setState(this.fresh()); };
@@ -543,6 +553,7 @@ export default class MatchController extends React.Component<ControllerProps, Ap
       isSquadList: (s.squadView || "list") !== "detail",
       isSquadDetail: s.squadView === "detail",
       currentSquadId: s.openSquadIdx,
+      postGameId: s.postGameId,
       backSquadList: this.backSquadList,
       squadCards: s.squads.map((sq, i) => ({ name: sq.name, emoji: sq.emoji, ring: sq.ring, myRank: sq.myRank, count: sq.members.length + " members", onClick: () => this.openSquadDetail(i) })),
       openCreate: () => this.openModal("create"), openJoin: () => this.openModal("join"), openAdd: () => this.openModal("add"),
@@ -699,7 +710,7 @@ export default class MatchController extends React.Component<ControllerProps, Ap
   actions: AppActions = {
     setNav: (t) => this.setNav(t),
     enterLive: () => this.enterLive(),
-    goPost: () => this.goPost(),
+    goPost: (gameId) => this.goPost(gameId),
     goHome: () => this.goHome(),
     restart: () => this.restart(),
     openSquadDetail: (i) => this.openSquadDetail(i),
