@@ -8,6 +8,19 @@ accepted_gap: true
 accepted_by: user decision, 2026-07-18 — GSD bypass explicitly authorized to hit a live-match window
 ---
 
+> **SUPERSEDED — do not treat this file as current.** It was written mid-session,
+> ~1h before kickoff, and stops before the live match ran. Several statements
+> below were overtaken by events (the trigger rule changed twice afterwards, the
+> goal rung was fixed, RESL-05 and the restart arm of RESL-04 landed).
+>
+> The authoritative record is
+> **`.planning/quick/260718-lml-live-loop-shipped-during-live-match/260718-lml-SUMMARY.md`**,
+> which supersedes this file and adds: live-match empirical results, the two
+> trigger narrowings, goal-confirm deferral, orphaned-window sweep, game
+> finalisation, the merged auth PRs, and the current test state.
+>
+> This file is kept only for the mid-session snapshot it represents.
+
 ## What happened
 
 Phase 4 (and part of Phase 5) was implemented directly on `develop` **without** a GSD
