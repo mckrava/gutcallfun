@@ -36,7 +36,7 @@ initial-request-src
 apps/gutcallfun-test-ui
 
 # ---- Deploy descriptors (consumed by Swarm/CI, not by the image) ------------
-dev-stack.yml
+stack.yml
 docker-compose.yml
 Dockerfile
 **/Dockerfile
