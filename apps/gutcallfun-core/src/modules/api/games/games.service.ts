@@ -5,6 +5,9 @@ import { GameEntity } from '../../../models/game/game.entity';
 import { GameQuestionEntity } from '../../../models/game/game-question.entity';
 import { GameQuestionOptionEntity } from '../../../models/game/game-question-option.entity';
 import { UserGameEntity } from '../../../models/game/user-game.entity';
+import { UserEntity } from '../../../models/account/user.entity';
+import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto';
+import { PaginatedGameParticipantsResponseDto } from './dto/game-participant-response.dto';
 import { GAME_EVENTS_FIXTURE } from '../../../mocks/fixtures/game-events.fixtures';
 import { GameEventPageDto } from './dto/game-event-page.dto';
 import {
@@ -224,6 +227,45 @@ export class GamesService {
       );
     }
     return this.toUserGameDto(row);
+  }
+
+  // Users who have joined this game (for the "who's in" live-hero strip),
+  // enriched with handle/emoji from `user`. Newest joiners last.
+  async findParticipants(
+    gameId: number,
+    query: PaginationQueryDto,
+  ): Promise<PaginatedGameParticipantsResponseDto> {
+    await this.findGameOrThrow(gameId);
+    const limit = query.limit ?? 20;
+    const offset = query.offset ?? 0;
+    const total = await this.userGamesRepo.count({ where: { gameId } });
+    const rows = await this.userGamesRepo
+      .createQueryBuilder('ug')
+      .leftJoin(UserEntity, 'u', 'u.id = ug.user_id')
+      .select([
+        'ug.user_id AS user_id',
+        'u.handle AS handle',
+        'u.emoji AS emoji',
+        'u.image AS image',
+        'ug.joined_at AS joined_at',
+      ])
+      .where('ug.game_id = :gameId', { gameId })
+      .orderBy('ug.joined_at', 'ASC')
+      .limit(limit)
+      .offset(offset)
+      .getRawMany<{ user_id: string; handle: string | null; emoji: string | null; image: string | null; joined_at: Date }>();
+    return {
+      items: rows.map((r) => ({
+        user_id: r.user_id,
+        handle: r.handle,
+        emoji: r.emoji,
+        image: r.image,
+        joined_at: new Date(r.joined_at).toISOString(),
+      })),
+      total,
+      limit,
+      offset,
+    };
   }
 
   private async findGameOrThrow(gameId: number): Promise<GameEntity> {

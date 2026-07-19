@@ -29,6 +29,14 @@ export interface Paginated<T> {
   offset: number;
 }
 
+// The game-event log is an append-only stream ordered by a per-game monotonic
+// `seq`, so it pages by a seq cursor, not offset — `next_seq` is the seq of the
+// last item, or null when the log has no further events past this page.
+export interface SeqPage<T> {
+  items: T[];
+  next_seq: number | null;
+}
+
 // ---------------------------------------------------------------------------
 // REST response DTOs
 // ---------------------------------------------------------------------------
@@ -85,6 +93,13 @@ export interface Question {
   options: QuestionOption[];
 }
 
+export interface GameParticipant {
+  user_id: string;
+  handle: string | null;
+  emoji: string | null;
+  image: string | null;
+  joined_at: string;
+}
 export interface UserGame {
   game_id: number;
   user_id: string;
@@ -126,6 +141,7 @@ export interface User {
   share_code: string;
   handle: string;
   image: string | null;
+  emoji: string | null;
   /** FK -> user_score_profile.id (points AT the profile row). */
   score_profile: string | null;
   created_at: string;
@@ -143,6 +159,8 @@ export interface Squad {
   id: number;
   name: string;
   image: string | null;
+  emoji: string | null;
+  member_count: number;
   invite_code: string | null;
   active: boolean;
   created_at: string;
@@ -154,6 +172,11 @@ export interface SquadParticipant {
   squad_id: number;
   user_id: string;
   active: boolean;
+  // Denormalised member profile (from the backend join).
+  handle: string | null;
+  emoji: string | null;
+  image: string | null;
+  total_points: number;
   score_profile: string | null;
   created_at: string;
   deleted_at: string | null;
@@ -170,6 +193,7 @@ export interface LeaderboardEntry {
   user_id: string;
   handle: string;
   image: string | null;
+  emoji: string | null;
   total_points: number;
   rank: number;
 }
@@ -184,24 +208,19 @@ export interface QuestionOutcome {
 // REST request DTOs
 // ---------------------------------------------------------------------------
 
-/** user_id is caller-supplied this phase (Phase 3 replaces it with the session). */
+// The answering/joining user comes from the session (@CurrentUser on the
+// backend), so no user_id is sent — matches CreateAnswerDto / JoinGameDto.
 export interface CreateAnswerBody {
-  user_id: string;
   game_question_id: string;
   selected_option_id: string;
 }
 
 export interface JoinGameBody {
-  user_id: string;
   squad_id?: number;
 }
 
-export interface CreateUserBody {
-  wallet_address: string;
-  handle: string;
-  image?: string;
-}
-
+// No POST /users — registration is /auth/register. Profile edits go through
+// PATCH /users/me (handle/avatar only), so the body carries no identity.
 export interface UpdateUserBody {
   handle?: string;
   image?: string;
@@ -209,8 +228,18 @@ export interface UpdateUserBody {
 
 export interface CreateSquadBody {
   name: string;
+  emoji?: string;
   image?: string;
   invite_code?: string;
+}
+export interface JoinSquadBody {
+  invite_code: string;
+}
+export interface ListSquadsQuery extends PaginationQuery {
+  participant_id?: string;
+}
+export interface ListUsersQuery extends PaginationQuery {
+  handle?: string;
 }
 
 export interface CreateSquadParticipantBody {
@@ -222,9 +251,21 @@ export interface PaginationQuery {
   offset?: number;
 }
 
+// GET /answers is always "my answers" (session-scoped); no user_id filter.
 export interface ListAnswersQuery extends PaginationQuery {
-  user_id?: string;
   game_id?: number;
+}
+
+// GET /games/:id/events — seq-cursor paging (NOT offset). Omit after_seq to
+// start from the beginning; limit defaults to 20 on the backend.
+export interface ListGameEventsQuery {
+  after_seq?: number;
+  limit?: number;
+}
+
+// GET /games/:id/questions — returns a bare array, optionally filtered by state.
+export interface ListQuestionsQuery {
+  state?: QuestionState;
 }
 
 // ---------------------------------------------------------------------------

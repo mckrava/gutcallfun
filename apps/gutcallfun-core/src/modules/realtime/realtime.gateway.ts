@@ -114,6 +114,17 @@ export class RealtimeGateway
     });
   }
 
+  /**
+   * Dev-only WS simulator seam. Emits an arbitrary event to a game's room,
+   * exactly like the live engine's own broadcasts — including `snapshot`,
+   * which the frozen LiveBroadcast union deliberately omits (it is normally
+   * sent only on subscribe). DevController scripts a live match through this;
+   * nothing on the production path calls it.
+   */
+  emitToGame(gameId: number, event: string, payload: unknown): void {
+    this.server?.to(`game:${gameId}`).emit(event, payload);
+  }
+
   @SubscribeMessage('subscribe')
   async handleSubscribe(
     @MessageBody() body: SubscribeDto,

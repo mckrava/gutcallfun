@@ -19,6 +19,20 @@ export class SquadParticipantResponseDto {
   @ApiProperty({ example: true })
   active: boolean;
 
+  // Denormalised member profile — the squad-detail UI renders member rows
+  // (avatar + handle + points) without an N+1 fetch per participant.
+  @ApiProperty({ example: 'goal_hunter_42', nullable: true })
+  handle: string | null;
+
+  @ApiProperty({ example: '🦊', nullable: true })
+  emoji: string | null;
+
+  @ApiProperty({ example: null, nullable: true })
+  image: string | null;
+
+  @ApiProperty({ type: 'integer', example: 315 })
+  total_points: number;
+
   @ApiProperty({
     example: 'ssp_mock_0001',
     nullable: true,

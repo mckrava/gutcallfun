@@ -15,6 +15,10 @@ export class SquadEntity {
   @Column({ name: 'image', type: 'varchar', nullable: true })
   image: string | null;
 
+  // Persisted crest emoji (AddAvatarEmoji migration).
+  @Column({ name: 'emoji', type: 'varchar', nullable: true })
+  emoji: string | null;
+
   @Column({ name: 'invite_code', type: 'varchar', nullable: true })
   inviteCode: string | null;
 

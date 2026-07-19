@@ -32,6 +32,10 @@ export class UserEntity {
   @Column({ name: 'image', type: 'varchar', nullable: true })
   image: string | null;
 
+  // Persisted avatar emoji (AddAvatarEmoji migration).
+  @Column({ name: 'emoji', type: 'varchar', nullable: true })
+  emoji: string | null;
+
   @Column({ name: 'score_profile', type: 'varchar', nullable: true })
   scoreProfile: string | null;
 

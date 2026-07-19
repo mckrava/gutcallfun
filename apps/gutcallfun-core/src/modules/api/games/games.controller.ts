@@ -17,7 +17,9 @@ import {
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { Public } from '../../auth/decorators/public.decorator';
 import type { AuthPrincipal } from '../../auth/auth.types';
+import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto';
 import { GameEventPageDto } from './dto/game-event-page.dto';
+import { PaginatedGameParticipantsResponseDto } from './dto/game-participant-response.dto';
 import {
   GameResponseDto,
   PaginatedGamesResponseDto,
@@ -80,6 +82,17 @@ export class GamesController {
     @Query() query: ListQuestionsQueryDto,
   ): Promise<QuestionResponseDto[]> {
     return this.gamesService.findQuestions(gameId, query);
+  }
+
+  @Public()
+  @Get(':game_id/participants')
+  @ApiOkResponse({ type: PaginatedGameParticipantsResponseDto })
+  @ApiNotFoundResponse({ description: 'No game exists with the given game_id.' })
+  findParticipants(
+    @Param('game_id', ParseIntPipe) gameId: number,
+    @Query() query: PaginationQueryDto,
+  ): Promise<PaginatedGameParticipantsResponseDto> {
+    return this.gamesService.findParticipants(gameId, query);
   }
 
   @Post(':game_id/join')

@@ -50,6 +50,7 @@ describe('AuthService', () => {
     share_code: 'GC-AB12-CD34',
     handle: 'gutcaller',
     image: null,
+    emoji: null,
     score_profile: null,
     created_at: '2026-07-18T00:00:00.000Z',
     updated_at: null,

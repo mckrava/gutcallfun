@@ -5,16 +5,22 @@ import type {
   CreateAnswerBody,
   CreateSquadBody,
   CreateSquadParticipantBody,
-  CreateUserBody,
+  JoinSquadBody,
+  ListSquadsQuery,
+  ListUsersQuery,
   Game,
   GameEvent,
+  GameParticipant,
   JoinGameBody,
   LeaderboardEntry,
   ListAnswersQuery,
+  ListGameEventsQuery,
+  ListQuestionsQuery,
   Paginated,
   PaginationQuery,
   Question,
   QuestionOutcome,
+  SeqPage,
   Squad,
   SquadParticipant,
   SquadScoreProfile,
@@ -43,18 +49,23 @@ export const authApi = {
 export const gamesApi = {
   list: (query?: PaginationQuery) => http.get<Paginated<Game>>("/games", query),
   get: (gameId: number) => http.get<Game>(`/games/${gameId}`),
-  events: (gameId: number, query?: PaginationQuery) =>
-    http.get<Paginated<GameEvent>>(`/games/${gameId}/events`, query),
-  questions: (gameId: number, query?: PaginationQuery) =>
-    http.get<Paginated<Question>>(`/games/${gameId}/questions`, query),
+  events: (gameId: number, query?: ListGameEventsQuery) =>
+    http.get<SeqPage<GameEvent>>(`/games/${gameId}/events`, query),
+  questions: (gameId: number, query?: ListQuestionsQuery) =>
+    http.get<Question[]>(`/games/${gameId}/questions`, query),
+  participants: (gameId: number, query?: PaginationQuery) =>
+    http.get<Paginated<GameParticipant>>(`/games/${gameId}/participants`, query),
   join: (gameId: number, body: JoinGameBody) => http.post<UserGame>(`/games/${gameId}/join`, body),
 };
 
 export const usersApi = {
-  list: (query?: PaginationQuery) => http.get<Paginated<User>>("/users", query),
+  list: (query?: ListUsersQuery) => http.get<Paginated<User>>("/users", query),
+  // Current user (session-derived on the backend via @CurrentUser).
+  me: () => http.get<User>("/users/me"),
+  myScoreProfile: () => http.get<UserScoreProfile>("/users/me/score-profile"),
+  updateMe: (body: UpdateUserBody) => http.patch<User>("/users/me", body),
+  // Other players by id (leaderboards, squad members).
   get: (userId: string) => http.get<User>(`/users/${userId}`),
-  create: (body: CreateUserBody) => http.post<User>("/users", body),
-  update: (userId: string, body: UpdateUserBody) => http.patch<User>(`/users/${userId}`, body),
   scoreProfile: (userId: string) => http.get<UserScoreProfile>(`/users/${userId}/score-profile`),
 };
 
@@ -64,8 +75,9 @@ export const answersApi = {
 };
 
 export const squadsApi = {
-  list: (query?: PaginationQuery) => http.get<Paginated<Squad>>("/squads", query),
+  list: (query?: ListSquadsQuery) => http.get<Paginated<Squad>>("/squads", query),
   create: (body: CreateSquadBody) => http.post<Squad>("/squads", body),
+  join: (body: JoinSquadBody) => http.post<Squad>("/squads/join", body),
   get: (squadId: number) => http.get<Squad>(`/squads/${squadId}`),
   participants: (squadId: number, query?: PaginationQuery) =>
     http.get<Paginated<SquadParticipant>>(`/squads/${squadId}/participants`, query),

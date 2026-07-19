@@ -87,6 +87,13 @@ export class EnvironmentVariables {
   @IsOptional()
   @IsString()
   AUTH_DOMAIN?: string;
+
+  // Dev match simulator (POST /dev/live/*). FAIL-CLOSED: DevModule is mounted
+  // ONLY when this is exactly "true" (see app.module.ts), so the routes don't
+  // exist at all otherwise — including production. Never set in a real deploy.
+  @IsOptional()
+  @IsString()
+  ENABLE_DEV_SIM?: string;
 }
 
 export function validate(

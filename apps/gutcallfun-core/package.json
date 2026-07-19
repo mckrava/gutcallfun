@@ -21,7 +21,9 @@
     "migration:generate": "tsx ../../node_modules/typeorm/cli.js migration:generate -d src/db/data-source.ts src/db/migrations/Migration",
     "migration:run": "tsx ../../node_modules/typeorm/cli.js migration:run -d src/db/data-source.ts",
     "migration:revert": "tsx ../../node_modules/typeorm/cli.js migration:revert -d src/db/data-source.ts",
-    "replay:create": "tsx scripts/replay-create.ts"
+    "replay:create": "tsx scripts/replay-create.ts",
+    "seed:matches": "tsx scripts/seed-matches.ts",
+    "seed:profiles": "tsx scripts/seed-profiles.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

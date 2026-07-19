@@ -14,8 +14,11 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import type { AuthPrincipal } from '../../auth/auth.types';
 import { CreateSquadParticipantDto } from './dto/create-squad-participant.dto';
 import { CreateSquadDto } from './dto/create-squad.dto';
+import { JoinSquadDto } from './dto/join-squad.dto';
 import { ListSquadsQueryDto } from './dto/list-squads-query.dto';
 import {
   PaginatedSquadParticipantsResponseDto,
@@ -38,20 +41,34 @@ export class SquadsController {
 
   @Post()
   @ApiCreatedResponse({ type: SquadResponseDto })
-  create(@Body() dto: CreateSquadDto): SquadResponseDto {
-    return this.squadsService.create(dto);
+  create(
+    @CurrentUser() user: AuthPrincipal,
+    @Body() dto: CreateSquadDto,
+  ): Promise<SquadResponseDto> {
+    // The creator is auto-added as the squad's first participant.
+    return this.squadsService.create(dto, user.userId);
   }
 
   @Get()
   @ApiOkResponse({ type: PaginatedSquadsResponseDto })
-  findAll(@Query() query: ListSquadsQueryDto): PaginatedSquadsResponseDto {
+  findAll(@Query() query: ListSquadsQueryDto): Promise<PaginatedSquadsResponseDto> {
     return this.squadsService.findAll(query);
+  }
+
+  @Post('join')
+  @ApiCreatedResponse({ type: SquadResponseDto })
+  @ApiNotFoundResponse({ description: 'No squad has the given invite code.' })
+  joinByCode(
+    @CurrentUser() user: AuthPrincipal,
+    @Body() dto: JoinSquadDto,
+  ): Promise<SquadResponseDto> {
+    return this.squadsService.joinByCode(dto.invite_code, user.userId);
   }
 
   @Get(':squad_id')
   @ApiOkResponse({ type: SquadResponseDto })
   @ApiNotFoundResponse({ description: 'No squad exists with the given id.' })
-  findOne(@Param('squad_id', ParseIntPipe) squadId: number): SquadResponseDto {
+  findOne(@Param('squad_id', ParseIntPipe) squadId: number): Promise<SquadResponseDto> {
     return this.squadsService.findOne(squadId);
   }
 
@@ -61,7 +78,7 @@ export class SquadsController {
   addParticipant(
     @Param('squad_id', ParseIntPipe) squadId: number,
     @Body() dto: CreateSquadParticipantDto,
-  ): SquadParticipantResponseDto {
+  ): Promise<SquadParticipantResponseDto> {
     return this.squadsService.addParticipant(squadId, dto);
   }
 
@@ -71,7 +88,7 @@ export class SquadsController {
   findParticipants(
     @Param('squad_id', ParseIntPipe) squadId: number,
     @Query() query: PaginationQueryDto,
-  ): PaginatedSquadParticipantsResponseDto {
+  ): Promise<PaginatedSquadParticipantsResponseDto> {
     return this.squadsService.findParticipants(squadId, query);
   }
 
@@ -83,7 +100,7 @@ export class SquadsController {
   })
   findScoreProfile(
     @Param('squad_id', ParseIntPipe) squadId: number,
-  ): SquadScoreProfileResponseDto {
+  ): Promise<SquadScoreProfileResponseDto> {
     return this.squadsService.findScoreProfile(squadId);
   }
 }

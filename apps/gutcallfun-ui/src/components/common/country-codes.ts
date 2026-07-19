@@ -25,6 +25,7 @@ const NAME_TO_ALPHA2: Record<string, string> = {
   belgium: "BE",
   uruguay: "UY",
   mexico: "MX",
+  myanmar: "MM",
   "united states": "US",
   usa: "US",
   canada: "CA",

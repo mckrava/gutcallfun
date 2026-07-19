@@ -11,19 +11,21 @@ export function LiveScreen() {
         <button onClick={vm.goHome} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(220,230,245,.55)", fontFamily: "Barlow,sans-serif", fontSize: 13, fontWeight: 600, padding: "2px 0" }}>‹ Matches</button>
         <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
           <div style={{ fontSize: 13 }}>🏆</div>
-          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 13, letterSpacing: ".7px", color: "#F2F6FC" }}>WORLD CUP 26</div>
+          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 13, letterSpacing: ".7px", color: "#F2F6FC" }}>{vm.liveHdrComp}</div>
+          {vm.liveHdrStage && (<>
           <div style={{ width: 3, height: 3, borderRadius: "50%", background: "rgba(220,230,245,.3)" }} />
-          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 11, letterSpacing: ".7px", color: "#FFD84D", background: "rgba(255,216,77,.12)", border: "1px solid rgba(255,216,77,.35)", borderRadius: 6, padding: "2px 7px" }}>SEMI-FINAL</div>
+          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 11, letterSpacing: ".7px", color: "#FFD84D", background: "rgba(255,216,77,.12)", border: "1px solid rgba(255,216,77,.35)", borderRadius: 6, padding: "2px 7px" }}>{vm.liveHdrStage}</div>
+          </>)}
         </div>
       </div>
 
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 11 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 14px", marginTop: 14 }}>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, width: 96 }}>{vm.brFlag}<div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 13, color: "#FFD84D", whiteSpace: "nowrap" }}>BRAZIL</div></div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, width: 96 }}>{vm.brFlag}<div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 13, color: "#FFD84D", whiteSpace: "nowrap" }}>{vm.liveT1}</div></div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
           <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 46, lineHeight: 1, letterSpacing: 2 }}>{vm.scoreBr} – {vm.scoreAr}</div>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, width: 96 }}>{vm.arFlag}<div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 13, color: "#7FB8E8", whiteSpace: "nowrap" }}>ARGENTINA</div></div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, width: 96 }}>{vm.arFlag}<div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 13, color: "#7FB8E8", whiteSpace: "nowrap" }}>{vm.liveT2}</div></div>
       </div>
 
       <div style={{ borderRadius: 18, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.07)", padding: "13px 14px" }}>
@@ -32,8 +34,8 @@ export function LiveScreen() {
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "1px", color: vm.attCol }}>{vm.attText}</div>
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", margin: "10px 2px 4px" }}>
-          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "1px", color: "rgba(255,216,77,.7)" }}>◀ BRAZIL</div>
-          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "1px", color: "rgba(127,184,232,.7)" }}>ARGENTINA ▶</div>
+          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "1px", color: "rgba(255,216,77,.7)" }}>◀ {vm.liveT1}</div>
+          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "1px", color: "rgba(127,184,232,.7)" }}>{vm.liveT2} ▶</div>
         </div>
         <div style={{ position: "relative", height: 16, borderRadius: 8, background: "#0A1120", boxShadow: "inset 0 2px 6px rgba(0,0,0,.6)" }}>
           <div style={{ position: "absolute", top: 2, bottom: 2, left: vm.fillLeft, width: vm.fillWidth, background: vm.fillBg, boxShadow: vm.fillGlow, borderRadius: vm.fillRad }} />
