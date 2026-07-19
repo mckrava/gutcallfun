@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { authApi } from "@/services/api/endpoints";
 import { useAppActions } from "@/state/context";
 
@@ -15,6 +16,7 @@ import { useAppActions } from "@/state/context";
  */
 export function SessionRestore() {
   const { saveUsername } = useAppActions();
+  const qc = useQueryClient();
   const ran = useRef(false);
 
   useEffect(() => {
@@ -22,9 +24,21 @@ export function SessionRestore() {
     ran.current = true;
     authApi
       .me()
-      .then(() => saveUsername()) // valid session → authStep "done"
+      .then(() => {
+        // Auth-dependent queries mount alongside this check and can lose the
+        // race, 401-ing before the session is confirmed. With retry: 1 and no
+        // refetch-on-focus they would stay empty for the rest of the session.
+        //
+        // Only errored queries are refetched, not the whole cache: a normal
+        // load where everything already succeeded must not pay for a second
+        // round of every request.
+        void qc.invalidateQueries({
+          predicate: (query) => query.state.status === "error",
+        });
+        saveUsername(); // valid session → authStep "done"
+      })
       .catch(() => {}); // 401 → stay on sign-in
-  }, [saveUsername]);
+  }, [saveUsername, qc]);
 
   return null;
 }

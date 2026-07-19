@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useWallet } from "@solana/wallet-adapter-react";
 import bs58 from "bs58";
 import { authApi } from "@/services/api/endpoints";
@@ -22,6 +23,7 @@ export function useWalletAuth() {
   const { connectWallet, saveUsername, restart } = useAppActions();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const qc = useQueryClient();
 
   const signIn = useCallback(async () => {
     if (!publicKey || !signMessage) {
@@ -40,6 +42,12 @@ export function useWalletAuth() {
         signature: bs58.encode(signature),
       });
       if (result.status === "authenticated") {
+        // Auth-dependent queries (/users/me, /answers, /games/:id/me) already
+        // ran and 401'd while signed out. With retry: 1 and no refetch-on-focus
+        // nothing would ever re-request them, so the app would sit on empty
+        // data until a full page reload — which is exactly what "works only
+        // after refresh" looked like.
+        await qc.invalidateQueries();
         saveUsername(); // known wallet → straight into the app
       } else {
         connectWallet(); // first-time wallet → choose a handle
@@ -49,7 +57,7 @@ export function useWalletAuth() {
     } finally {
       setBusy(false);
     }
-  }, [publicKey, signMessage, connectWallet, saveUsername]);
+  }, [publicKey, signMessage, connectWallet, saveUsername, qc]);
 
   const register = useCallback(
     async (handle: string) => {
@@ -62,6 +70,7 @@ export function useWalletAuth() {
       setError(null);
       try {
         await authApi.register(trimmed);
+        await qc.invalidateQueries(); // same reason as signIn
         saveUsername(); // → done
       } catch (e) {
         setError(messageFor(e, "Could not save your username."));
@@ -69,7 +78,7 @@ export function useWalletAuth() {
         setBusy(false);
       }
     },
-    [saveUsername],
+    [saveUsername, qc],
   );
 
   const signOut = useCallback(async () => {
@@ -79,11 +88,14 @@ export function useWalletAuth() {
       // autoConnect can't immediately re-sign-in on the sign-in screen.
       await authApi.logout().catch(() => {});
       await disconnect().catch(() => {});
+      // Drop every cached response — otherwise the next user to sign in on this
+      // device briefly sees the previous user's points, answers and squads.
+      qc.clear();
     } finally {
       setBusy(false);
       restart(); // fresh app state → authStep "connect" → routes to /signin
     }
-  }, [disconnect, restart]);
+  }, [disconnect, restart, qc]);
 
   return { signIn, register, signOut, error, busy };
 }

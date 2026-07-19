@@ -331,6 +331,38 @@ Causes 1 and 2 pre-date this session's work; the extra store writes added for
 liveGameId and squad hydration increased the pressure on an already-looping
 path rather than creating it.
 
+## Follow-up 6: data empty until a full page reload
+
+Reported: navigating /matches → game page shows 0 score and no squad; a refresh
+fixes it. Separately, on the remote deploy score works after refresh but squad
+still does not.
+
+**Two different causes.**
+
+**Local — sign-in never invalidated the query cache.** Auth-dependent queries
+(`/users/me`, `/answers`, and now `/games/:id/me`) mount with the app and fire
+immediately. Signed out, they 401. `signIn()` / `register()` then establish the
+server session but never touch react-query, and with `retry: 1`,
+`refetchOnWindowFocus: false` and `staleTime: 30s` **nothing ever re-requests
+them** — so `me.data` and `answers.data` stayed undefined for the rest of the
+session. A reload remounted everything with a valid cookie, which is exactly the
+"only works after refresh" signature.
+
+Fixed by invalidating on every auth transition:
+- `signIn` (authenticated) and `register` invalidate the whole cache.
+- `SessionRestore` invalidates **only errored queries** (`predicate: status ===
+  'error'`) — a normal load where everything already succeeded must not pay for
+  a second round of every request.
+- `signOut` now calls `qc.clear()`. Previously the cache survived logout, so the
+  next user to sign in on the same device would briefly see the previous user's
+  points, answers and squads.
+
+**Remote — the endpoint simply is not deployed.** `GET /games/1/me` returns
+**404** on api.gutcall.fun while `/games/1` returns 200, confirming the running
+image predates follow-up 4. Score works there because it derives from
+`/answers`, which is old code. **This needs both services redeployed** — the UI
+alone would call an endpoint that does not exist.
+
 ## Open / deliberately not done
 
 1. **`applyResolutionPoints` now has no readers.** Decide whether to delete the
