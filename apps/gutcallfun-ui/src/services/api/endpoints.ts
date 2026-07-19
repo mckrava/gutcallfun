@@ -13,6 +13,7 @@ import type {
   GameParticipant,
   JoinGameBody,
   LeaderboardEntry,
+  LeaderboardQuery,
   ListAnswersQuery,
   ListGameEventsQuery,
   ListQuestionsQuery,
@@ -87,7 +88,9 @@ export const squadsApi = {
 };
 
 export const leaderboardApi = {
-  list: (query?: PaginationQuery) => http.get<Paginated<LeaderboardEntry>>("/leaderboard", query),
+  // Optional game_id / squad_id select the game- and squad-scoped boards;
+  // omitting both is the global board this endpoint always returned.
+  list: (query?: LeaderboardQuery) => http.get<Paginated<LeaderboardEntry>>("/leaderboard", query),
 };
 
 export const questionOutcomesApi = {

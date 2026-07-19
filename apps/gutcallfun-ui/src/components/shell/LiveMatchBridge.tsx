@@ -37,7 +37,19 @@ export function LiveMatchBridge() {
   useEffect(() => {
     if (!liveGame) return;
     // A resolution just landed — the backend set awarded_points on my answer.
+    //
+    // Every points-bearing surface must be invalidated here, not just answers.
+    // All of them are now DERIVED from user_game_answer server-side, so a
+    // resolution changes all of them at once; with staleTime 30s and
+    // refetchOnWindowFocus disabled, anything not listed keeps rendering the
+    // value it happened to fetch when its screen first mounted. That is what
+    // made /rankings sit at a stale total while the in-game counter climbed.
     void qc.invalidateQueries({ queryKey: queryKeys.answers.all });
+    void qc.invalidateQueries({ queryKey: queryKeys.leaderboardAll });
+    void qc.invalidateQueries({ queryKey: queryKeys.users.myScoreProfile });
+    // Squad participant rows carry squad-scoped points, and the squad profile
+    // carries the average — both move on every resolution too.
+    void qc.invalidateQueries({ queryKey: queryKeys.squads.all });
   }, [lastResolutionId, liveGame, qc]);
   useEffect(() => {
     if (!liveGame) {

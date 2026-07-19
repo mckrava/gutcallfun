@@ -1,13 +1,13 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useApp } from "@/state/context";
-import { useAddSquadParticipant, useCreateSquad, useCurrentUser, useJoinSquad, useMySquads } from "@/services/api/hooks";
+import { useAddSquadParticipant, useCreateSquad, useCurrentUser, useJoinGame, useJoinSquad, useMySquads } from "@/services/api/hooks";
 import { usersApi } from "@/services/api/endpoints";
 import { queryKeys } from "@/services/api/queryKeys";
-import { setRealData } from "@/state/realData";
+import { getRealData, setRealData, subscribeRealData } from "@/state/realData";
 import { avatarFor } from "@/services/adapters/avatar";
 
 const CRESTS = ["⚽", "🔥", "⚡", "🏆", "🐉", "👑"];
@@ -23,6 +23,13 @@ export function SquadModal() {
   const addMember = useAddSquadParticipant(vm.currentSquadId);
   const me = useCurrentUser();
   const mySquads = useMySquads(me.data?.id);
+  // The live game to attach the squad pick to. Published by RealDataBridge.
+  const liveGameId = useSyncExternalStore(
+    subscribeRealData,
+    () => getRealData().liveGameId ?? null,
+    () => null,
+  );
+  const joinGame = useJoinGame(liveGameId ?? -1);
   const [crest, setCrest] = useState("⚽");
   const [err, setErr] = useState<string | null>(null);
 
@@ -30,6 +37,34 @@ export function SquadModal() {
 
   const refetchSquads = () => qc.invalidateQueries({ queryKey: queryKeys.squads.all });
   const busy = createSquad.isPending || joinSquad.isPending || addMember.isPending;
+
+  /**
+   * Picking a squad for the match must PERSIST, not just update local state.
+   * This previously only wrote `matchSquadId` to the client store, so the UI
+   * showed the squad as chosen while `user_game.squad_id` stayed NULL — and
+   * every squad-scoped leaderboard, which derives attribution from that column,
+   * saw the user as a solo participant.
+   *
+   * The join endpoint is the writer: re-joining with a squad updates the
+   * association. Local state is set immediately so the modal closes responsively;
+   * the request reconciles behind it.
+   */
+  const onPickSquad = (squadId: number) => {
+    setRealData({ matchSquadId: squadId });
+    vm.closeModal();
+    if (liveGameId == null) return;
+    joinGame.mutate(
+      { squad_id: squadId },
+      {
+        onSuccess: (row) => {
+          // Trust the server's value over the optimistic one.
+          setRealData({ matchSquadId: row.squad_id });
+          void qc.invalidateQueries({ queryKey: queryKeys.leaderboardAll });
+          void qc.invalidateQueries({ queryKey: queryKeys.games.participants(liveGameId) });
+        },
+      },
+    );
+  };
 
   const onCreate = () => {
     const name = vm.formName.trim();
@@ -124,7 +159,7 @@ export function SquadModal() {
               )}
               {(mySquads.data?.items ?? []).map((sq) => (
                 <Fragment key={sq.id}>
-                  <button onClick={() => { setRealData({ matchSquadId: sq.id }); vm.closeModal(); }} style={{ width: "100%", textAlign: "left", display: "flex", alignItems: "center", gap: 12, borderRadius: 13, padding: "12px 13px", background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.08)", cursor: "pointer", color: "#F2F6FC" }}>
+                  <button onClick={() => onPickSquad(sq.id)} style={{ width: "100%", textAlign: "left", display: "flex", alignItems: "center", gap: 12, borderRadius: 13, padding: "12px 13px", background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.08)", cursor: "pointer", color: "#F2F6FC" }}>
                     <div style={{ width: 40, height: 40, borderRadius: 12, background: "#0D1626", boxShadow: `0 0 0 2px ${avatarFor(String(sq.id)).ring}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, flexShrink: 0 }}>{sq.emoji ?? "⚽"}</div>
                     <div style={{ flex: 1 }}><div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 16 }}>{sq.name}</div><div style={{ fontSize: "10.5px", color: "rgba(220,230,245,.45)" }}>{sq.member_count} {sq.member_count === 1 ? "member" : "members"}</div></div>
                   </button>

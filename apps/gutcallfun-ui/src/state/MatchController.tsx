@@ -114,6 +114,12 @@ export default class MatchController extends React.Component<ControllerProps, Ap
     // Re-render whenever the real-data bridge injects backend-sourced rows, so
     // renderVals() swaps mock constants for live data (see state/realData.ts).
     this._unsubReal = subscribeRealData(() => this.forceUpdate());
+    // Catch up on anything written BEFORE this subscription existed. Child
+    // effects (RealDataBridge et al.) run before a parent's componentDidMount,
+    // so a write in that window notifies nobody — react-query serving a cached
+    // page synchronously, or a fast resolve, would leave this component showing
+    // mock constants forever despite the store holding real rows.
+    if (Object.keys(getRealData()).length > 0) this.forceUpdate();
     this.syncRoute();
   }
   componentDidUpdate() {

@@ -1,4 +1,4 @@
-import type { ListAnswersQuery, ListGameEventsQuery, ListQuestionsQuery, ListSquadsQuery, PaginationQuery } from "./types";
+import type { LeaderboardQuery, ListAnswersQuery, ListGameEventsQuery, ListQuestionsQuery, ListSquadsQuery, PaginationQuery } from "./types";
 
 // Stable query-key factory so hooks and manual cache updates/invalidations stay
 // in sync. Keep every read through here.
@@ -30,6 +30,9 @@ export const queryKeys = {
     participants: (squadId: number, query?: PaginationQuery) => ["squads", squadId, "participants", query ?? {}] as const,
     scoreProfile: (squadId: number) => ["squads", squadId, "score-profile"] as const,
   },
-  leaderboard: (query?: PaginationQuery) => ["leaderboard", query ?? {}] as const,
+  leaderboard: (query?: LeaderboardQuery) => ["leaderboard", query ?? {}] as const,
+  // Prefix key: invalidating this matches EVERY leaderboard scope at once
+  // (global, per-game, per-squad), which is what a resolution changes.
+  leaderboardAll: ["leaderboard"] as const,
   questionOutcomes: ["question-outcomes"] as const,
 };

@@ -9,6 +9,7 @@ import type {
   CreateSquadParticipantBody,
   JoinGameBody,
   JoinSquadBody,
+  LeaderboardQuery,
   ListAnswersQuery,
   ListSquadsQuery,
   ListGameEventsQuery,
@@ -170,8 +171,16 @@ export function useJoinSquad() {
 }
 
 // ---- Leaderboard / outcomes ----
-export function useLeaderboard(query?: PaginationQuery) {
-  return useQuery({ queryKey: queryKeys.leaderboard(query), queryFn: () => leaderboardApi.list(query) });
+// `enabled: false` lets a caller hold the hook while its scope is still
+// unknown. Without it, passing `undefined` for "not ready yet" silently fetches
+// the GLOBAL board — a wasted request whose rows are the wrong ones for a
+// scoped caller.
+export function useLeaderboard(query?: LeaderboardQuery, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: queryKeys.leaderboard(query),
+    queryFn: () => leaderboardApi.list(query),
+    enabled: options?.enabled ?? true,
+  });
 }
 export function useQuestionOutcomes() {
   return useQuery({ queryKey: queryKeys.questionOutcomes, queryFn: () => questionOutcomesApi.list() });

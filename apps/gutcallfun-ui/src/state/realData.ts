@@ -29,6 +29,9 @@ export interface RealData {
   liveGoal?: LiveGoalVM | null;
   // "YOUR POINTS" for the live match — sum of my answers' awarded points.
   liveDispPts?: string;
+  // The currently-live game's id, published by RealDataBridge so other bridges
+  // can scope their queries to it without re-deriving "which game is live".
+  liveGameId?: number | null;
   // The squad the user picked to duel this match (real squad id) + its panel.
   matchSquadId?: number | null;
   matchSquadPanel?: MatchSquadPanelVM | null;

@@ -9,9 +9,23 @@ const MEDALS = [
   { medalBg: "linear-gradient(135deg,rgba(214,154,92,.16),rgba(214,154,92,.04))", medalBd: "rgba(214,154,92,.42)", numCol: "#D69A5C" },
 ];
 
-const nameOf = (p: SquadParticipant) => (p.handle ? `@${p.handle}` : `@${p.user_id.slice(0, 6)}`);
-const emojiOf = (p: SquadParticipant) => p.emoji ?? avatarFor(p.user_id).emoji;
-const ringOf = (p: SquadParticipant) => avatarFor(p.user_id).ring;
+/**
+ * Minimal shape shared by `SquadParticipant` and `LeaderboardEntry` so the
+ * member-row helpers and the match panel can be fed from either. Leaderboard
+ * rows carry a server-computed `rank` (shared across ties); participant rows do
+ * not, and fall back to array position.
+ */
+export interface RankableMember {
+  user_id: string;
+  handle: string | null;
+  emoji: string | null;
+  total_points: number;
+  rank?: number;
+}
+
+const nameOf = (p: RankableMember) => (p.handle ? `@${p.handle}` : `@${p.user_id.slice(0, 6)}`);
+const emojiOf = (p: RankableMember) => p.emoji ?? avatarFor(p.user_id).emoji;
+const ringOf = (p: RankableMember) => avatarFor(p.user_id).ring;
 
 // Split a squad's (points-desc) participants into medal + rest rows, matching
 // the mock's Squad-detail styling. `meId` highlights the caller's row.
@@ -57,16 +71,20 @@ export function squadMembersToRows(
 
 // The picked squad + its members → the in-match duel panel. `meId` is
 // highlighted and labelled "You"; standing is the caller's rank in the squad.
+//
+// Feed this the GAME-SCOPED squad leaderboard, not the squad participant list:
+// participants carry points earned across the whole squad history, which made
+// this panel rank teammates by matches that are not the one being watched.
 export function squadToMatchPanel(
   squad: Squad,
-  participants: SquadParticipant[],
+  participants: RankableMember[],
   meId?: string | null,
 ): MatchSquadPanelVM {
   const sorted = [...participants].sort((a, b) => b.total_points - a.total_points);
   const rows: MatchSquadRow[] = sorted.map((p, i) => {
     const you = !!meId && p.user_id === meId;
     return {
-      rank: String(i + 1),
+      rank: String(p.rank ?? i + 1),
       name: you ? "You" : nameOf(p),
       emoji: emojiOf(p),
       pts: String(p.total_points),
@@ -82,6 +100,7 @@ export function squadToMatchPanel(
     };
   });
   const myIdx = sorted.findIndex((p) => !!meId && p.user_id === meId);
-  const standing = myIdx >= 0 ? `#${myIdx + 1} OF ${sorted.length}` : `${sorted.length} MEMBERS`;
+  const myRank = myIdx >= 0 ? (sorted[myIdx].rank ?? myIdx + 1) : null;
+  const standing = myRank !== null ? `#${myRank} OF ${sorted.length}` : `${sorted.length} MEMBERS`;
   return { name: squad.name, emoji: squad.emoji ?? "⚽", standing, rows };
 }

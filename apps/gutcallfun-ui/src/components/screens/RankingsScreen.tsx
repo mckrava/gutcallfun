@@ -24,11 +24,17 @@ export function RankingsScreen() {
           ))}
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 9, margin: "20px 2px 12px" }}>
-          <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,.08)" }}></div>
-          <div style={{ fontSize: "9.5px", fontWeight: 700, letterSpacing: "2px", color: "rgba(220,230,245,.4)" }}>AROUND YOU</div>
-          <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,.08)" }}></div>
-        </div>
+        {/* Only shown when there is anyone below the top 3. With a handful of
+            registered users the board is 3 rows and this section is legitimately
+            empty — rendering a bare divider over blank space reads as a broken
+            or unfinished screen. */}
+        {vm.rankAround.length > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 9, margin: "20px 2px 12px" }}>
+            <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,.08)" }}></div>
+            <div style={{ fontSize: "9.5px", fontWeight: 700, letterSpacing: "2px", color: "rgba(220,230,245,.4)" }}>AROUND YOU</div>
+            <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,.08)" }}></div>
+          </div>
+        )}
 
         <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
           {vm.rankAround.map((q, i) => (

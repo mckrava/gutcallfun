@@ -184,7 +184,16 @@ export interface SquadParticipant {
 
 export interface SquadScoreProfile {
   id: string;
+  // SUM of what members earned while representing THIS squad — not the sum of
+  // their lifetime totals, since a user can play for several squads.
   total_points: number;
+  // The squad's headline standing: total_points averaged over members who have
+  // played at least one game for it (players-only denominator, so roster size
+  // cannot dilute the score). Prefer this over total_points when displaying
+  // "the squad's score".
+  avg_points: number;
+  // Denominator behind avg_points — players, not roster size.
+  players_count: number;
   games_played: number;
   updated_at: string | null;
 }
@@ -249,6 +258,24 @@ export interface CreateSquadParticipantBody {
 export interface PaginationQuery {
   limit?: number;
   offset?: number;
+}
+
+/**
+ * GET /leaderboard. Both filters are independently optional and together
+ * select one of four boards:
+ *
+ *   {}                        global, every user
+ *   { squad_id }              global, one squad's members
+ *   { game_id }               one game, every participant
+ *   { game_id, squad_id }     one game, one squad — the live in-match board
+ *
+ * Squad scoping follows `user_game.squad_id`: the squad a user joined THAT
+ * GAME as. A user who joined solo has no squad board and does not appear on
+ * one; a user who joined for a different squad contributes nothing here.
+ */
+export interface LeaderboardQuery extends PaginationQuery {
+  game_id?: number;
+  squad_id?: number;
 }
 
 // GET /answers is always "my answers" (session-scoped); no user_id filter.
