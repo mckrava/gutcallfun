@@ -10,11 +10,28 @@ export class SquadParticipantResponseDto {
   @ApiProperty({ type: 'integer', example: 1001 })
   squad_id: number;
 
-  @ApiProperty({ example: '00000000-0000-4000-8000-000000000001', format: 'uuid' })
+  @ApiProperty({
+    example: '00000000-0000-4000-8000-000000000001',
+    format: 'uuid',
+  })
   user_id: string;
 
   @ApiProperty({ example: true })
   active: boolean;
+
+  // Denormalised member profile — the squad-detail UI renders member rows
+  // (avatar + handle + points) without an N+1 fetch per participant.
+  @ApiProperty({ example: 'goal_hunter_42', nullable: true })
+  handle: string | null;
+
+  @ApiProperty({ example: '🦊', nullable: true })
+  emoji: string | null;
+
+  @ApiProperty({ example: null, nullable: true })
+  image: string | null;
+
+  @ApiProperty({ type: 'integer', example: 315 })
+  total_points: number;
 
   @ApiProperty({
     example: 'ssp_mock_0001',

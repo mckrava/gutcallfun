@@ -8,6 +8,7 @@ const VALID_ENV = {
   TXLINE_API_TOKEN: 'api-token-value',
   SERVICE_LEVEL_ID: '12',
   WEB_APP_ORIGIN: 'http://localhost:3001',
+  JWT_ACCESS_SECRET: 'test-access-secret-at-least-32-chars-long',
 };
 
 describe('validate (fail-fast env validation)', () => {
@@ -70,7 +71,9 @@ describe('validate (fail-fast env validation)', () => {
   });
 
   it('Test 8: throws with a service-level message when SERVICE_LEVEL_ID=1 (60s-delayed feed)', () => {
-    expect(() => validate({ ...VALID_ENV, SERVICE_LEVEL_ID: '1' })).toThrow(/SERVICE_LEVEL_ID/);
+    expect(() => validate({ ...VALID_ENV, SERVICE_LEVEL_ID: '1' })).toThrow(
+      /SERVICE_LEVEL_ID/,
+    );
   });
 
   it('Test 9: throws when SERVICE_LEVEL_ID is missing', () => {
@@ -101,11 +104,48 @@ describe('validate (fail-fast env validation)', () => {
   });
 
   it('Test 13: throws when WEB_APP_ORIGIN is a protocol-less string', () => {
-    expect(() => validate({ ...VALID_ENV, WEB_APP_ORIGIN: 'localhost:3001' })).toThrow();
+    expect(() =>
+      validate({ ...VALID_ENV, WEB_APP_ORIGIN: 'localhost:3001' }),
+    ).toThrow();
   });
 
   it('Test 14: returns successfully for a protocol-qualified WEB_APP_ORIGIN', () => {
-    const result = validate({ ...VALID_ENV, WEB_APP_ORIGIN: 'http://localhost:3001' });
+    const result = validate({
+      ...VALID_ENV,
+      WEB_APP_ORIGIN: 'http://localhost:3001',
+    });
     expect(result.WEB_APP_ORIGIN).toBe('http://localhost:3001');
+  });
+
+  // ---- Phase 3: Wallet Auth config (AUTH-01) ----
+
+  it('Test 15: throws when JWT_ACCESS_SECRET is absent (same fail-fast group)', () => {
+    const { JWT_ACCESS_SECRET, ...rest } = VALID_ENV;
+    void JWT_ACCESS_SECRET;
+    expect(() => validate(rest)).toThrow();
+  });
+
+  it('Test 16: throws when JWT_ACCESS_SECRET is shorter than 32 chars', () => {
+    expect(() =>
+      validate({ ...VALID_ENV, JWT_ACCESS_SECRET: 'too-short' }),
+    ).toThrow();
+  });
+
+  it('Test 17: applies default JWT TTLs when unset', () => {
+    const result = validate({ ...VALID_ENV });
+    expect(result.JWT_ACCESS_TTL).toBe(900);
+    expect(result.JWT_REFRESH_TTL).toBe(2_592_000);
+  });
+
+  it('Test 18: accepts custom JWT TTLs and an optional AUTH_DOMAIN', () => {
+    const result = validate({
+      ...VALID_ENV,
+      JWT_ACCESS_TTL: '600',
+      JWT_REFRESH_TTL: '604800',
+      AUTH_DOMAIN: 'gutcall.fun',
+    });
+    expect(result.JWT_ACCESS_TTL).toBe(600);
+    expect(result.JWT_REFRESH_TTL).toBe(604800);
+    expect(result.AUTH_DOMAIN).toBe('gutcall.fun');
   });
 });

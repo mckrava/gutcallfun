@@ -5,5 +5,5 @@ import { SquadDetailScreen } from "@/components/screens/SquadDetailScreen";
 export default function Page({ params }: { params: Promise<{ idx: string }> }) {
   const { idx } = use(params);
   useSyncSquadDetail(Number(idx));
-  return <SquadDetailScreen />;
+  return <SquadDetailScreen squadId={Number(idx)} />;
 }

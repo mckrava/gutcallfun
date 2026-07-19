@@ -8,13 +8,19 @@ import { PaginatedResponseDto } from '../../../../common/dto/paginated-response.
  * TypeScript properties, not an oversight (see 02.1-RESEARCH.md Pattern 1).
  */
 export class UserResponseDto {
-  @ApiProperty({ example: '00000000-0000-4000-8000-000000000001', format: 'uuid' })
+  @ApiProperty({
+    example: '00000000-0000-4000-8000-000000000001',
+    format: 'uuid',
+  })
   id: string;
 
   @ApiProperty({ example: 'GCMOCKWALLET0000000000000000000000000001' })
   wallet_address: string;
 
-  @ApiProperty({ example: 'GC-A1B2-C3D4', description: 'Crockford base32 share code, GC-XXXX-XXXX form.' })
+  @ApiProperty({
+    example: 'GC-A1B2-C3D4',
+    description: 'Crockford base32 share code, GC-XXXX-XXXX form.',
+  })
   share_code: string;
 
   @ApiProperty({ example: 'mock_striker_09' })
@@ -23,10 +29,14 @@ export class UserResponseDto {
   @ApiProperty({ example: 'seed:mock-avatar-striker-09', nullable: true })
   image: string | null;
 
+  @ApiProperty({ example: '🦊', nullable: true, description: 'Persisted avatar emoji.' })
+  emoji: string | null;
+
   @ApiProperty({
     example: 'usp_mock_0001',
     nullable: true,
-    description: 'FK pointing AT user_score_profile.id — null until the user has played a game.',
+    description:
+      'FK pointing AT user_score_profile.id — null until the user has played a game.',
   })
   score_profile: string | null;
 

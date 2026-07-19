@@ -8,7 +8,6 @@ import {
   GLOBALS,
   HOT,
   LBL,
-  LBLR,
   MOMENTS,
   OPTS,
   PTS,
@@ -20,6 +19,7 @@ import {
   type TeamKey,
 } from "./constants";
 import { AppActionsContext, AppContext, type AppActions } from "./context";
+import { getRealData, setRealData, subscribeRealData } from "./realData";
 import type { AppState, ViewModel } from "./types";
 
 interface ControllerProps {
@@ -52,6 +52,7 @@ export default class MatchController extends React.Component<ControllerProps, Ap
   _winT0 = 0;
   _dragY0 = 0;
   _dragging = false;
+  _unsubReal?: () => void;
 
   state: AppState = this.fresh();
 
@@ -60,14 +61,14 @@ export default class MatchController extends React.Component<ControllerProps, Ap
       screen: "home", mi: -1, auto: false, clock: "—", phase: "PRE",
       score: { br: 0, ar: 0 }, tension: 0, jitter: 0, dispT: 0, stage: 0, attTeam: null,
       comm: [{ t: "Build-up at the Azteca. Kickoff imminent…", dim: false }],
-      win: null, res: null, beatsOn: false, pts: 0, dispPts: 0,
+      win: null, beatsOn: false, pts: 0, dispPts: 0,
       squad: [
         { n: "Dmytro", ini: "DM", emoji: "🐯", c: "#FF8A3D", pts: 0, r: null, mov: "▲1" },
         { n: "Olia", ini: "OL", emoji: "🐸", c: "#C08BFF", pts: 0, r: null, mov: "—" },
         { n: "Max", ini: "MX", emoji: "🐙", c: "#3DDC84", pts: 0, r: null, mov: "▼1" },
         { n: "Sasha", ini: "SA", emoji: "🚀", c: "#FF5E8A", pts: 0, r: null, mov: "▲1" },
       ],
-      lb: false, lbTab: "squad", flash: null, slam: null, shake: false, homeTab: "upcoming", navTab: "matches", squadView: "list", openSquadIdx: 0, matchSquadIdx: null, myReact: null, squads: SQUADS, modal: null, form: { name: "", emoji: "⚽", code: "", user: "" },
+      flash: null, slam: null, shake: false, homeTab: "upcoming", navTab: "matches", squadView: "list", openSquadIdx: 0, matchSquadIdx: null, myReact: null, squads: SQUADS, modal: null, form: { name: "", emoji: "⚽", code: "", user: "" },
       ended: false, pre: { winner: null, goals: null }, hist: [], toast: null, settled: false, authStep: "connect", onbUser: "",
     };
   }
@@ -80,7 +81,6 @@ export default class MatchController extends React.Component<ControllerProps, Ap
     if (ss === "pre") this.setState({ screen: "pre" });
     if (ss === "live") this.enterLive();
     if (ss === "post") this.setState({ screen: "post", clock: "90+5'", phase: "FT", score: { br: 1, ar: 1 }, ended: true });
-    if (ss === "lb") { this.enterLive(); this._t(() => this.setState({ lb: true }), 60); }
     this._dispT = 0; this._jitV = 0; this._jitAt = 0;
     this._lerp = setInterval(() => {
       if (this.state.screen !== "live") return;
@@ -101,7 +101,6 @@ export default class MatchController extends React.Component<ControllerProps, Ap
       const s = this.state;
       if (s.screen === "home" || s.screen === "pre") { this.next(); return; }
       if (s.screen !== "live") return;
-      if (s.res) { this.setState({ res: null }); return; }
       if (s.win || s.beatsOn) return;
       if (s.ended) { this.setState({ auto: false }); this.goPost(); return; }
       this.next();
@@ -112,6 +111,9 @@ export default class MatchController extends React.Component<ControllerProps, Ap
       if (e.key === " " || e.key === "ArrowRight") { e.preventDefault(); this.next(); }
     };
     window.addEventListener("keydown", this._key);
+    // Re-render whenever the real-data bridge injects backend-sourced rows, so
+    // renderVals() swaps mock constants for live data (see state/realData.ts).
+    this._unsubReal = subscribeRealData(() => this.forceUpdate());
     this.syncRoute();
   }
   componentDidUpdate() {
@@ -121,6 +123,7 @@ export default class MatchController extends React.Component<ControllerProps, Ap
     this.clearAll();
     clearInterval(this._autoI); clearInterval(this._lerp);
     if (this._key) window.removeEventListener("keydown", this._key);
+    this._unsubReal?.();
   }
 
   // Mirror engine state → URL. Called after mount and every update; only pushes
@@ -164,7 +167,6 @@ export default class MatchController extends React.Component<ControllerProps, Ap
     if (s.screen === "pre") { this.enterLive(); return; }
     if (s.screen === "post") { this.restart(); return; }
     if (s.win || s.beatsOn) return;
-    if (s.res) { this.setState({ res: null }); return; }
     if (s.ended) { this.goPost(); return; }
     const mi = s.mi + 1;
     if (mi >= MOMENTS.length) { this.goPost(); return; }
@@ -287,6 +289,9 @@ export default class MatchController extends React.Component<ControllerProps, Ap
 
   enterLive = () => {
     this.setState({ screen: "live" });
+    // A real live game drives the screen over WebSocket — don't start the mock
+    // MOMENTS simulation (which would push fake commentary/goals over it).
+    if (getRealData().liveMatch) return;
     if (this.state.mi < 0) {
       this._t(() => { if (this.state.mi < 0 && this.state.screen === "live") this.applyMoment(0); }, 420);
     }
@@ -301,7 +306,7 @@ export default class MatchController extends React.Component<ControllerProps, Ap
       this.setState((st) => ({ settled: true, squad: st.squad.map((q) => (q.n === "Dmytro" || q.n === "Max") ? Object.assign({}, q, { pts: q.pts + 10 }) : q) }));
       if (bW + bG) this.award(bW + bG);
     }
-    this.setState({ screen: "post", lb: false, res: null, auto: false, clock: "90+5'", phase: "FT", score: { br: 1, ar: 1 }, ended: true });
+    this.setState({ screen: "post", auto: false, clock: "90+5'", phase: "FT", score: { br: 1, ar: 1 }, ended: true });
   };
 
   restart = () => { this.clearAll(); this._ptsTotal = 0; this._dispNow = 0; this._dispT = 0; this._jitV = 0; this.setState(this.fresh()); };
@@ -359,10 +364,11 @@ export default class MatchController extends React.Component<ControllerProps, Ap
   };
   logout = () => { this.setState({ toast: "Demo only — wallet stays connected" }); this._t(() => this.setState({ toast: null }), 2200); };
   demoToast = () => { this.setState({ toast: "Only the live semi-final is playable in this demo" }); this._t(() => this.setState({ toast: null }), 2200); };
+  comingSoon = () => { this.setState({ toast: "Coming soon 🚀" }); this._t(() => this.setState({ toast: null }), 2000); };
   demoWindow = () => { const m = MOMENTS.find((x) => x.window); if (!m || !m.window) return; clearInterval(this._ct); this.setState({ screen: "live", win: Object.assign({}, m.window, { left: 5, total: 5, pick: null }), winDrag: 0 }); };
   dismissWin = () => { clearInterval(this._ct); this.setState({ win: null, winDrag: 0 }); };
   demoGoal = () => { clearInterval(this._ct); this.setState({ screen: "live", flash: "br", shake: true, slam: { word: "GOAL", sub: "RODRYGO · 12'", team: "br" }, score: { br: 1, ar: 0 } }); this._t(() => this.setState({ flash: null, shake: false }), 950); };
-  dismissGoal = () => this.setState({ slam: null, flash: null, shake: false });
+  dismissGoal = () => { setRealData({ liveGoal: null }); this.setState({ slam: null, flash: null, shake: false }); };
   connectWallet = () => this.setState({ authStep: "username" });
   saveUsername = () => this.setState({ authStep: "done" });
   showOnboarding = () => this.setState({ authStep: "connect", onbUser: "" });
@@ -375,10 +381,6 @@ export default class MatchController extends React.Component<ControllerProps, Ap
     this.setState({ auto: !was });
     if (!was) this._t(() => { if (this.state.auto) this.next(); }, 250);
   };
-  openLb = () => this.setState({ lb: true });
-  closeLb = () => this.setState({ lb: false });
-  tabSquad = () => this.setState({ lbTab: "squad" });
-  tabGlobal = () => this.setState({ lbTab: "global" });
   share = () => {
     this.setState({ toast: "Link copied — flex responsibly 🔥" });
     this._t(() => this.setState({ toast: null }), 2000);
@@ -386,6 +388,12 @@ export default class MatchController extends React.Component<ControllerProps, Ap
 
   renderVals(): ViewModel {
     const s = this.state, T = TEAMS;
+    // Real live "Match Details" view-models (WebSocket-driven); when present they
+    // override the mock-simulation live fields below. See state/realData.ts.
+    const rd = getRealData();
+    const lm = rd.liveMatch;
+    const lw = rd.liveWindow;
+    const lg = rd.liveGoal;
     const emb = this.props.embed ?? false;
     const motion = (this.props.motion ?? "full") === "full";
     const t = Math.max(-1, Math.min(1, s.dispT));
@@ -438,53 +446,10 @@ export default class MatchController extends React.Component<ControllerProps, Ap
         }),
       };
     }
-
-    const res = s.res;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let resVals: any = { resOpen: false, resReached: "", resReachedCol: "#fff", resGlow: "rgba(0,0,0,0)", resPickLine: "", resPts: "", resPtsCol: "#fff", resTitle: "", resSquadLine: "" };
-    if (res) {
-      resVals = {
-        resOpen: true,
-        resReached: LBLR[res.outcome],
-        resReachedCol: HOT[res.outcome],
-        resGlow: this.hexA(HOT[res.outcome], 0.28),
-        resPickLine: res.pick ? "Your call: " + LBL[res.pick] : "You let this one ride — no pick",
-        resPts: "+" + res.earned,
-        resPtsCol: res.earned ? "#3DDC84" : "rgba(255,255,255,.4)",
-        resTitle: res.correct ? (res.outcome === "goal" ? "CALLED IT — OUT OF NOTHING!" : "NAILED IT") : (res.pick ? "SO CLOSE" : "NO PICK THIS TIME"),
-        resSquadLine: res.squadLine,
-      };
-    }
+    // A real WS-driven prediction window replaces the mock window wholesale.
+    if (lw) winVals = lw;
 
     const rank = 1 + s.squad.filter((q) => q.pts > s.pts).length;
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let lbRows: any[] = [];
-    if (s.lbTab === "squad") {
-      const entries = [{ name: "You", sub: "that's you", pts: s.pts, ring: "#FFD84D", ini: "YOU", you: true, mov: s.pts > 0 ? "▲" : "—" }]
-        .concat(s.squad.map((q) => ({ name: q.n, sub: "squad", pts: q.pts, ring: q.c, ini: q.ini, you: false, mov: q.mov })));
-      entries.sort((a, b) => b.pts - a.pts);
-      lbRows = entries.map((q, i) => ({
-        rank: String(i + 1), rankCol: i === 0 ? "#FFD84D" : i === 1 ? "#C9D6E8" : i === 2 ? "#C08D5A" : "rgba(255,255,255,.45)",
-        ini: q.ini, ring: q.ring, name: q.name, sub: q.sub, pts: String(q.pts),
-        mov: q.mov, movCol: q.mov.indexOf("▲") === 0 ? "#3DDC84" : q.mov.indexOf("▼") === 0 ? "#FF4D5E" : "rgba(255,255,255,.3)",
-        bg: q.you ? "rgba(255,216,77,.09)" : "rgba(255,255,255,.02)",
-        bd: q.you ? "rgba(255,216,77,.35)" : "rgba(255,255,255,.06)",
-      }));
-    } else {
-      const yr = Math.max(1204, 15832 - s.pts * 95);
-      lbRows = GLOBALS.map((q) => ({
-        rank: q.rank, rankCol: q.rank === "1" ? "#FFD84D" : "rgba(255,255,255,.45)",
-        ini: q.ini, ring: q.ring, name: q.name, sub: q.sub, pts: String(q.pts),
-        mov: q.mov, movCol: q.mov.indexOf("▲") === 0 ? "#3DDC84" : q.mov.indexOf("▼") === 0 ? "#FF4D5E" : "rgba(255,255,255,.3)",
-        bg: "rgba(255,255,255,.02)", bd: "rgba(255,255,255,.06)",
-      })).concat([{
-        rank: "#" + yr.toLocaleString("en-US"), rankCol: "#FFD84D",
-        ini: "YOU", ring: "#FFD84D", name: "You", sub: "worldwide", pts: String(s.pts),
-        mov: "▲" + (s.pts * 95).toLocaleString("en-US"), movCol: "#3DDC84",
-        bg: "rgba(255,216,77,.09)", bd: "rgba(255,216,77,.35)",
-      }]);
-    }
 
     const mkChip = (sel: boolean) => ({
       bg: sel ? "rgba(255,216,77,.15)" : "rgba(255,255,255,.04)",
@@ -513,7 +478,6 @@ export default class MatchController extends React.Component<ControllerProps, Ap
     else if (s.screen === "post") nextLabel = "REPLAY THE MATCH ⟲";
     else if (win) nextLabel = "PICK ON THE PHONE · " + Math.ceil(win.left) + "S";
     else if (s.beatsOn) nextLabel = "ATTACK UNFOLDING…";
-    else if (s.res) nextLabel = "CONTINUE ▶";
     else if (s.ended) nextLabel = "SEE YOUR MATCH EKG →";
     else nextLabel = "NEXT MOMENT · " + (MOMENTS[s.mi + 1] ? MOMENTS[s.mi + 1].clock : "FT");
 
@@ -557,6 +521,7 @@ export default class MatchController extends React.Component<ControllerProps, Ap
       squadList: s.squad.map((q) => ({ n: q.n, ini: q.ini, c: q.c, mov: q.mov, pts: String(120 + s.squad.indexOf(q) * -13 + 40), tot: String(680 - s.squad.indexOf(q) * 55) })),
       isSquadList: (s.squadView || "list") !== "detail",
       isSquadDetail: s.squadView === "detail",
+      currentSquadId: s.openSquadIdx,
       backSquadList: this.backSquadList,
       squadCards: s.squads.map((sq, i) => ({ name: sq.name, emoji: sq.emoji, ring: sq.ring, myRank: sq.myRank, count: sq.members.length + " members", onClick: () => this.openSquadDetail(i) })),
       openCreate: () => this.openModal("create"), openJoin: () => this.openModal("join"), openAdd: () => this.openModal("add"),
@@ -592,12 +557,12 @@ export default class MatchController extends React.Component<ControllerProps, Ap
         };
       })(this.state.squads[s.openSquadIdx || 0]),
       globalList: GLOBALS,
-      rankTop3: [
+      rankTop3: getRealData().rankTop3 ?? [
         { rank: "1", name: "@thiago", pts: "2,240", emoji: "🦊", ring: "#FFD84D", medalBg: "linear-gradient(135deg,rgba(255,216,77,.22),rgba(255,216,77,.05))", medalBd: "rgba(255,216,77,.5)", numCol: "#FFD84D" },
         { rank: "2", name: "@lapulga10", pts: "2,205", emoji: "🐸", ring: "#C9D6E8", medalBg: "linear-gradient(135deg,rgba(201,214,232,.16),rgba(201,214,232,.04))", medalBd: "rgba(201,214,232,.42)", numCol: "#C9D6E8" },
         { rank: "3", name: "@yellowwall", pts: "2,190", emoji: "🐙", ring: "#D69A5C", medalBg: "linear-gradient(135deg,rgba(214,154,92,.16),rgba(214,154,92,.04))", medalBd: "rgba(214,154,92,.42)", numCol: "#D69A5C" },
       ],
-      rankAround: [
+      rankAround: getRealData().rankAround ?? [
         { rank: "126", name: "@mateus", pts: "664", emoji: "🐼", ring: "#8FA9FF", you: false },
         { rank: "127", name: "@sofia_g", pts: "651", emoji: "🚀", ring: "#3DDC84", you: false },
         { rank: "128", name: "@gutcaller", pts: "640", emoji: "🦊", ring: "#FFD84D", you: true },
@@ -613,6 +578,7 @@ export default class MatchController extends React.Component<ControllerProps, Ap
       })),
       logout: this.logout,
       demoToast: this.demoToast,
+      comingSoon: this.comingSoon,
       recentMatches: [
         { comp: "WC26 · QUARTER-FINAL", score: "2 – 1", pts: "+40", hEl: this.flagEl("BRA", 26), aEl: this.flagEl("ARG", 26) },
         { comp: "WC26 · ROUND OF 16", score: "1 – 0", pts: "+15", hEl: this.flagEl("FRA", 26), aEl: this.flagEl("MAR", 26) },
@@ -626,16 +592,16 @@ export default class MatchController extends React.Component<ControllerProps, Ap
       pastCol: (s.homeTab || "upcoming") === "past" ? "#F2F6FC" : "rgba(220,230,245,.4)",
       pastBar: (s.homeTab || "upcoming") === "past" ? "#FFD84D" : "transparent",
       liveClick: this.enterLive, liveComp: "WORLD CUP 26 · SEMI-FINAL", liveClock: "84' · LIVE", liveScore: "1 – 1",
-      brFlag: this.flagEl("BRA", 48), arFlag: this.flagEl("ARG", 48),
-      matchSquadName: s.matchSquadIdx != null ? SQUADS[s.matchSquadIdx].name : "",
-      matchSquadEmoji: s.matchSquadIdx != null ? SQUADS[s.matchSquadIdx].emoji : "",
-      hasMatchSquad: s.matchSquadIdx != null,
-      noMatchSquad: s.matchSquadIdx == null,
+      brFlag: lm?.t1Flag ?? this.flagEl("BRA", 48), arFlag: lm?.t2Flag ?? this.flagEl("ARG", 48),
+      matchSquadName: rd.matchSquadPanel?.name ?? (s.matchSquadIdx != null ? SQUADS[s.matchSquadIdx].name : ""),
+      matchSquadEmoji: rd.matchSquadPanel?.emoji ?? (s.matchSquadIdx != null ? SQUADS[s.matchSquadIdx].emoji : ""),
+      hasMatchSquad: rd.matchSquadPanel ? true : s.matchSquadIdx != null,
+      noMatchSquad: rd.matchSquadPanel ? false : s.matchSquadIdx == null,
       openSquadPicker: this.openSquadPicker,
       squadPickList: SQUADS.map((sq, i) => ({ name: sq.name, emoji: sq.emoji, ring: sq.ring, count: sq.members.length + " members", pick: () => this.pickSquad(i), selBd: s.matchSquadIdx === i ? "#FFD84D" : "rgba(255,255,255,.08)", selBg: s.matchSquadIdx === i ? "rgba(255,216,77,.08)" : "rgba(255,255,255,.035)" })),
       reactOpts: ["🔥", "😱", "⚽", "🤡", "👎"].map((em) => ({ em: em, send: () => this.sendReact(em) })),
-      matchStanding: (function (squad, myPts) { const better = squad.filter((q) => q.pts > myPts).length; return "#" + (better + 1) + " of " + (squad.length + 1); })(s.squad, s.pts),
-      matchSquadRow: (function (squad, myPts, myReact) {
+      matchStanding: rd.matchSquadPanel?.standing ?? (function (squad, myPts) { const better = squad.filter((q) => q.pts > myPts).length; return "#" + (better + 1) + " of " + (squad.length + 1); })(s.squad, s.pts),
+      matchSquadRow: rd.matchSquadPanel?.rows ?? (function (squad, myPts, myReact) {
         const all = [{ name: "You", emoji: "🦊", ring: "#FFD84D", pts: myPts, r: myReact, isYou: true }]
           .concat(squad.map((q) => ({ name: q.n, emoji: q.emoji, ring: q.c, pts: q.pts, r: q.r, isYou: false })));
         all.sort((a, b) => b.pts - a.pts);
@@ -646,8 +612,10 @@ export default class MatchController extends React.Component<ControllerProps, Ap
             rankCol: m.isYou ? "#FFD84D" : "rgba(220,230,245,.45)", ptsCol: m.isYou ? "#FFD84D" : "#3DDC84" };
         });
       })(s.squad, s.pts, s.myReact),
-      laterMatches: FIXTURES.later.map((m) => Object.assign({}, m, { onClick: this.demoToast, hFlagEl: this.flagEl(m.hc, 38, m.accent), aFlagEl: this.flagEl(m.ac, 38, m.accent) })),
-      pastMatches: FIXTURES.past.map((m) => Object.assign({}, m, { onClick: this.demoToast, hFlagEl: this.flagEl(m.hc, 36, m.accent), aFlagEl: this.flagEl(m.ac, 36, m.accent) })),
+      hasLiveGame: !!getRealData().liveHero,
+      liveHero: getRealData().liveHero ?? null,
+      laterMatches: getRealData().laterMatches ?? FIXTURES.later.map((m) => Object.assign({}, m, { onClick: this.demoToast, hFlagEl: this.flagEl(m.hc, 38, m.accent), aFlagEl: this.flagEl(m.ac, 38, m.accent) })),
+      pastMatches: getRealData().pastMatches ?? FIXTURES.past.map((m) => Object.assign({}, m, { onClick: this.demoToast, hFlagEl: this.flagEl(m.hc, 36, m.accent), aFlagEl: this.flagEl(m.ac, 36, m.accent) })),
       appAnim: s.shake && motion ? "kfShake .55s cubic-bezier(.36,.07,.19,.97) both" : "none",
       next: this.next, restart: this.restart, toggleAuto: this.toggleAuto, demoWindow: this.demoWindow, demoGoal: this.demoGoal,
       dismissWin: this.dismissWin, winDown: this.winDown, winMove: this.winMove, winUp: this.winUp, winDragT: (s.winDrag || 0) + "px",
@@ -660,36 +628,33 @@ export default class MatchController extends React.Component<ControllerProps, Ap
       scenes: scenes,
       clock: s.clock, phaseLabel: s.phase, phaseCol: ph[0], phaseBg: ph[1],
       phaseDotAnim: s.phase === "LIVE" ? "kfDot 1.1s ease-in-out infinite" : "none",
-      scoreBr: String(s.score.br), scoreAr: String(s.score.ar),
-      attText: s.stage === 0 ? "ALL QUIET" : attT.code + " " + ["", "BUILDING", "THREATENING", "BIG CHANCE"][s.stage],
-      attCol: s.stage === 0 ? "rgba(255,255,255,.35)" : attT.c,
-      fillLeft: (isBr ? 50 : 50 - fillW) + "%", fillWidth: fillW + "%",
-      fillBg: isBr ? "linear-gradient(90deg, rgba(255,216,77,.12), #FFD84D)" : "linear-gradient(270deg, rgba(127,184,232,.12), #7FB8E8)",
-      fillGlow: "0 0 " + (10 + s.stage * 8) + "px " + (isBr ? this.hexA("#FFD84D", glowA) : this.hexA("#7FB8E8", glowA)),
-      fillRad: isBr ? "0 8px 8px 0" : "8px 0 0 8px",
-      pulseBg: isBr ? "#FFD84D" : "#7FB8E8",
-      pulseDur: [2.6, 1.5, 0.95, 0.55][s.stage] + "s",
-      stagePills: stagePills,
+      scoreBr: lm?.scoreBr ?? String(s.score.br), scoreAr: lm?.scoreAr ?? String(s.score.ar),
+      attText: lm?.attText ?? (s.stage === 0 ? "ALL QUIET" : attT.code + " " + ["", "BUILDING", "THREATENING", "BIG CHANCE"][s.stage]),
+      attCol: lm?.attCol ?? (s.stage === 0 ? "rgba(255,255,255,.35)" : attT.c),
+      fillLeft: lm?.fillLeft ?? (isBr ? 50 : 50 - fillW) + "%", fillWidth: lm?.fillWidth ?? fillW + "%",
+      fillBg: lm?.fillBg ?? (isBr ? "linear-gradient(90deg, rgba(255,216,77,.12), #FFD84D)" : "linear-gradient(270deg, rgba(127,184,232,.12), #7FB8E8)"),
+      fillGlow: lm?.fillGlow ?? "0 0 " + (10 + s.stage * 8) + "px " + (isBr ? this.hexA("#FFD84D", glowA) : this.hexA("#7FB8E8", glowA)),
+      fillRad: lm?.fillRad ?? (isBr ? "0 8px 8px 0" : "8px 0 0 8px"),
+      pulseBg: lm?.pulseBg ?? (isBr ? "#FFD84D" : "#7FB8E8"),
+      pulseDur: lm?.pulseDur ?? [2.6, 1.5, 0.95, 0.55][s.stage] + "s",
+      stagePills: lm?.stagePills ?? stagePills,
+      liveHdrComp: lm?.headerComp ?? "WORLD CUP 26",
+      liveHdrStage: lm ? lm.headerStage : "SEMI-FINAL",
+      liveT1: lm?.t1Name ?? "BRAZIL",
+      liveT2: lm?.t2Name ?? "ARGENTINA",
       commMain: s.comm[0] ? s.comm[0].t : "", commPrev: s.comm[1] ? s.comm[1].t : "",
       squadRow: s.squad.map((q) => ({ n: q.n, ini: q.ini, c: q.c, pts: String(q.pts), r: q.r || "", hasR: !!q.r })),
-      dispPts: String(s.dispPts), rankChip: "#" + rank + " IN SQUAD", openLb: this.openLb,
-      lbOpen: s.lb, closeLb: this.closeLb, tabSquad: this.tabSquad, tabGlobal: this.tabGlobal,
-      tabSqBg: s.lbTab === "squad" ? "rgba(255,216,77,.16)" : "transparent",
-      tabSqCol: s.lbTab === "squad" ? "#FFD84D" : "rgba(220,230,245,.55)",
-      tabGlBg: s.lbTab === "global" ? "rgba(255,216,77,.16)" : "transparent",
-      tabGlCol: s.lbTab === "global" ? "#FFD84D" : "rgba(220,230,245,.55)",
-      lbRows: lbRows,
-      dismissRes: () => this.setState({ res: null }),
-      flashOn: !!s.flash,
-      flashBg: s.flash === "br" ? "radial-gradient(ellipse at 50% 40%, rgba(255,216,77,.9), rgba(255,216,77,0) 72%)" : s.flash === "ar" ? "radial-gradient(ellipse at 50% 40%, rgba(127,184,232,.9), rgba(127,184,232,0) 72%)" : "radial-gradient(ellipse at 50% 40%, rgba(255,255,255,.65), rgba(255,255,255,0) 72%)",
-      slamOn: !!s.slam,
-      slamWord: s.slam ? s.slam.word : "", slamSub: s.slam ? s.slam.sub : "",
-      slamColor: s.slam ? T[s.slam.team].c : "#fff",
-      slamGlow: s.slam ? this.hexA(T[s.slam.team].c, 0.55) : "rgba(0,0,0,0)",
-      goalBg: s.slam ? (s.slam.team === "br" ? "radial-gradient(ellipse at 50% 40%, rgba(255,216,77,.32), rgba(6,9,15,.97) 66%)" : "radial-gradient(ellipse at 50% 40%, rgba(127,184,232,.32), rgba(6,9,15,.97) 66%)") : "transparent",
-      goalFlagEl: s.slam ? this.flagEl(s.slam.team === "br" ? "BRA" : "ARG", 84) : null,
-      goalTeamName: s.slam ? T[s.slam.team].nice.toUpperCase() + " SCORE" : "",
-      goalScore: s.slam ? ("BRA " + s.score.br + " – " + s.score.ar + " ARG") : "",
+      dispPts: rd.liveDispPts ?? String(s.dispPts), rankChip: "#" + rank + " IN SQUAD",
+      flashOn: lg?.flashOn ?? !!s.flash,
+      flashBg: lg?.flashBg ?? (s.flash === "br" ? "radial-gradient(ellipse at 50% 40%, rgba(255,216,77,.9), rgba(255,216,77,0) 72%)" : s.flash === "ar" ? "radial-gradient(ellipse at 50% 40%, rgba(127,184,232,.9), rgba(127,184,232,0) 72%)" : "radial-gradient(ellipse at 50% 40%, rgba(255,255,255,.65), rgba(255,255,255,0) 72%)"),
+      slamOn: lg?.slamOn ?? !!s.slam,
+      slamWord: lg?.slamWord ?? (s.slam ? s.slam.word : ""), slamSub: lg?.slamSub ?? (s.slam ? s.slam.sub : ""),
+      slamColor: lg?.slamColor ?? (s.slam ? T[s.slam.team].c : "#fff"),
+      slamGlow: lg?.slamGlow ?? (s.slam ? this.hexA(T[s.slam.team].c, 0.55) : "rgba(0,0,0,0)"),
+      goalBg: lg?.goalBg ?? (s.slam ? (s.slam.team === "br" ? "radial-gradient(ellipse at 50% 40%, rgba(255,216,77,.32), rgba(6,9,15,.97) 66%)" : "radial-gradient(ellipse at 50% 40%, rgba(127,184,232,.32), rgba(6,9,15,.97) 66%)") : "transparent"),
+      goalFlagEl: lg?.goalFlagEl ?? (s.slam ? this.flagEl(s.slam.team === "br" ? "BRA" : "ARG", 84) : null),
+      goalTeamName: lg?.goalTeamName ?? (s.slam ? T[s.slam.team].nice.toUpperCase() + " SCORE" : ""),
+      goalScore: lg?.goalScore ?? (s.slam ? ("BRA " + s.score.br + " – " + s.score.ar + " ARG") : ""),
       dismissGoal: this.dismissGoal,
       isAuth: s.authStep === "connect", isUsername: s.authStep === "username",
       connectWallet: this.connectWallet, saveUsername: this.saveUsername, showOnboarding: this.showOnboarding,
@@ -706,7 +671,7 @@ export default class MatchController extends React.Component<ControllerProps, Ap
       postRows: postRows,
       ekgSvg: s.screen === "post" ? this.buildEkg() : null,
       share: this.share,
-    }, winVals, resVals);
+    }, winVals);
     return vm as unknown as ViewModel;
   }
 

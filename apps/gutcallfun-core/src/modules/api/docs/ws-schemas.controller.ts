@@ -12,6 +12,7 @@ import { QuestionMessageDto } from '../../realtime/dto/question-message.dto';
 import { ResolutionMessageDto } from '../../realtime/dto/resolution-message.dto';
 import { VoidMessageDto } from '../../realtime/dto/void-message.dto';
 import { SubscribeDto } from '../../realtime/dto/subscribe.dto';
+import { Public } from '../../auth/decorators/public.decorator';
 
 /**
  * Swagger/OpenAPI has no native WebSocket support (RESEARCH.md Pattern 6), so
@@ -39,6 +40,7 @@ import { SubscribeDto } from '../../realtime/dto/subscribe.dto';
 )
 @Controller('docs')
 export class WsSchemasController {
+  @Public()
   @Get('ws-contract')
   @ApiOperation({
     summary:

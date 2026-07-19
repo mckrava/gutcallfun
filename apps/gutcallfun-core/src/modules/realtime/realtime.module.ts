@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { RealtimeGateway } from './realtime.gateway';
+import { AuthModule } from '../auth/auth.module';
 import { LiveModule } from '../live/live.module';
 
 /**
@@ -16,7 +17,7 @@ import { LiveModule } from '../live/live.module';
  * module exporting `SchedulerRegistry`.
  */
 @Module({
-  imports: [LiveModule],
+  imports: [LiveModule, AuthModule],
   providers: [RealtimeGateway],
   exports: [RealtimeGateway],
 })

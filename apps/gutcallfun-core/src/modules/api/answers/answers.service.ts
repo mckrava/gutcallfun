@@ -32,8 +32,10 @@ function pgErrorOf(err: unknown): { code?: string; constraint?: string } {
   };
 }
 
-const isUniqueViolation = (err: unknown): boolean => pgErrorOf(err).code === '23505';
-const isForeignKeyViolation = (err: unknown): boolean => pgErrorOf(err).code === '23503';
+const isUniqueViolation = (err: unknown): boolean =>
+  pgErrorOf(err).code === '23505';
+const isForeignKeyViolation = (err: unknown): boolean =>
+  pgErrorOf(err).code === '23503';
 
 /** timestamptz columns arrive as Date from pg; the wire contract is an ISO string. */
 const toIso = (value: Date | string | null | undefined): string | null =>
@@ -63,7 +65,10 @@ export class AnswersService {
    * awarded_points / successful_outcome / resolved_at stay NULL and
    * reward_multiplier is left at its default of 1 — the resolver owns scoring.
    */
-  async create(dto: CreateAnswerDto): Promise<AnswerResponseDto> {
+  async create(
+    userId: string,
+    dto: CreateAnswerDto,
+  ): Promise<AnswerResponseDto> {
     const question = await this.questionsRepo.findOne({
       where: { id: dto.game_question_id },
     });
@@ -87,18 +92,18 @@ export class AnswersService {
     }
 
     const existing = await this.answersRepo.findOne({
-      where: { userId: dto.user_id, gameQuestionId: question.id },
+      where: { userId: userId, gameQuestionId: question.id },
     });
     if (existing) {
       throw new ConflictException(
-        `User ${dto.user_id} has already answered question ${question.id}`,
+        `User ${userId} has already answered question ${question.id}`,
       );
     }
 
     let insertedId: string;
     try {
       const result = await this.answersRepo.insert({
-        userId: dto.user_id,
+        userId: userId,
         // game_id is denormalized onto user_game_answer for the leaderboard
         // SUM (idx_uga_leaderboard); it is derived from the question row, not
         // taken from the request body.
@@ -111,36 +116,43 @@ export class AnswersService {
     } catch (err) {
       if (isUniqueViolation(err)) {
         throw new ConflictException(
-          `User ${dto.user_id} has already answered question ${question.id}`,
+          `User ${userId} has already answered question ${question.id}`,
         );
       }
       if (isForeignKeyViolation(err)) {
-        throw new NotFoundException(`User ${dto.user_id} not found`);
+        throw new NotFoundException(`User ${userId} not found`);
       }
       throw err;
     }
 
     const row = await this.answersRepo.findOne({ where: { id: insertedId } });
     if (!row) {
-      throw new NotFoundException(`Answer ${insertedId} could not be read back`);
+      throw new NotFoundException(
+        `Answer ${insertedId} could not be read back`,
+      );
     }
     return this.toResponseDto(row);
   }
 
-  async findAll(query: ListAnswersQueryDto): Promise<PaginatedAnswersResponseDto> {
+  async findAll(
+    userId: string,
+    query: ListAnswersQueryDto,
+  ): Promise<PaginatedAnswersResponseDto> {
     const limit = query.limit ?? 20;
     const offset = query.offset ?? 0;
 
-    const qb = this.answersRepo.createQueryBuilder('a');
+    const qb = this.answersRepo
+      .createQueryBuilder('a')
+      .where('a.userId = :userId', { userId });
 
-    if (query.user_id) {
-      qb.andWhere('a.userId = :userId', { userId: query.user_id });
-    }
     if (query.game_id !== undefined) {
       qb.andWhere('a.gameId = :gameId', { gameId: query.game_id });
     }
 
-    qb.orderBy('a.createdAt', 'ASC').addOrderBy('a.id', 'ASC').skip(offset).take(limit);
+    qb.orderBy('a.createdAt', 'ASC')
+      .addOrderBy('a.id', 'ASC')
+      .skip(offset)
+      .take(limit);
 
     const [rows, total] = await qb.getManyAndCount();
 

@@ -1,11 +1,51 @@
 "use client";
 
-import { useApp } from "@/state/context";
+import { useEffect, useRef } from "react";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import { useWalletAuth } from "@/services/auth/useWalletAuth";
 import SolanaWhite from "@/icons/SolanaWhite.svg";
 
 // Ported verbatim from the "Sign in" screen in the old template (isAuth block).
 export function SignInScreen() {
-  const vm = useApp();
+  const { connected, connecting } = useWallet();
+  const { setVisible } = useWalletModal();
+  const { signIn, error, busy } = useWalletAuth();
+
+  // Only sign in when the user explicitly asks to — NOT on any `connected`
+  // transition. autoConnect silently reconnects the wallet on reload; without
+  // this intent gate that would pop a signature request on every refresh
+  // (SessionRestore, not the wallet, keeps a returning user signed in).
+  //
+  // wantSignIn: set when the user opens the modal to connect; the effect then
+  // signs in once the wallet connects. ran: dedupes that effect-driven sign-in.
+  const wantSignIn = useRef(false);
+  const ran = useRef(false);
+  useEffect(() => {
+    if (connected && wantSignIn.current && !ran.current) {
+      ran.current = true;
+      void signIn();
+    }
+    if (!connected) {
+      ran.current = false;
+      wantSignIn.current = false;
+    }
+  }, [connected, signIn]);
+
+  // The button: if a wallet is already connected, sign in now (also the retry
+  // path after a failed signature — the button is disabled while busy, so no
+  // overlap); otherwise open the modal and let the effect sign in on connect.
+  const handleConnect = () => {
+    if (connected) {
+      void signIn();
+    } else {
+      wantSignIn.current = true;
+      setVisible(true);
+    }
+  };
+
+  const pending = connecting || busy;
+
   return (
     <div
       data-screen-label="Sign in"
@@ -40,11 +80,15 @@ export function SignInScreen() {
       </div>
 
       <button
-        onClick={vm.connectWallet}
-        style={{ position: "relative", width: "100%", height: 58, borderRadius: 16, border: "none", background: "linear-gradient(135deg,#9945FF 0%,#7A5CFF 50%,#14F195 100%)", color: "#fff", fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 18, letterSpacing: "0.8px", cursor: "pointer", boxShadow: "0 14px 38px rgba(153,69,255,.45)", display: "flex", alignItems: "center", justifyContent: "center", gap: 9 }}
+        onClick={handleConnect}
+        disabled={pending}
+        style={{ position: "relative", width: "100%", height: 58, borderRadius: 16, border: "none", background: "linear-gradient(135deg,#9945FF 0%,#7A5CFF 50%,#14F195 100%)", color: "#fff", fontFamily: "'Barlow Condensed',sans-serif", fontStyle: "italic", fontWeight: 700, fontSize: 18, letterSpacing: "0.8px", cursor: pending ? "default" : "pointer", opacity: pending ? 0.7 : 1, boxShadow: "0 14px 38px rgba(153,69,255,.45)", display: "flex", alignItems: "center", justifyContent: "center", gap: 9 }}
       >
-        <img src={SolanaWhite.src} alt="" style={{ width: 18, height: 16, display: "block" }} /> CONNECT SOLANA WALLET
+        <img src={SolanaWhite.src} alt="" style={{ width: 18, height: 16, display: "block" }} /> {connecting ? "CONNECTING…" : busy ? "SIGNING IN…" : "CONNECT SOLANA WALLET"}
       </button>
+      {error && (
+        <div style={{ position: "relative", marginTop: 12, textAlign: "center", fontSize: 12, lineHeight: 1.4, color: "#FF8A94" }}>{error}</div>
+      )}
       <div style={{ position: "relative", marginTop: 13, textAlign: "center", fontSize: 11, lineHeight: 1.5, color: "rgba(220,230,245,.4)" }}>
         No crypto knowledge needed — your wallet is just your login.<br />By continuing you agree to the Terms &amp; Privacy.
       </div>

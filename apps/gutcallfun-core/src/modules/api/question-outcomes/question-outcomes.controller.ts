@@ -1,5 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Public } from '../../auth/decorators/public.decorator';
 import { QuestionOutcomeResponseDto } from './dto/question-outcome-response.dto';
 import { QuestionOutcomesService } from './question-outcomes.service';
 
@@ -10,6 +11,7 @@ export class QuestionOutcomesController {
     private readonly questionOutcomesService: QuestionOutcomesService,
   ) {}
 
+  @Public()
   @Get()
   @ApiOperation({
     summary:

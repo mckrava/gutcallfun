@@ -16,8 +16,17 @@ export class UpdateUserDto {
   @MaxLength(32)
   handle?: string;
 
-  @ApiPropertyOptional({ example: 'seed:mock-avatar-striker-09-v2', nullable: true })
+  @ApiPropertyOptional({
+    example: 'seed:mock-avatar-striker-09-v2',
+    nullable: true,
+  })
   @IsOptional()
   @IsString()
   image?: string;
+
+  @ApiPropertyOptional({ example: '🐼' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(8)
+  emoji?: string;
 }

@@ -3,7 +3,6 @@
 import type { ReactNode } from "react";
 import { useApp } from "@/state/context";
 import { Overlays } from "@/components/overlays/Overlays";
-import { DebugPanel } from "@/components/debug/DebugPanel"; // TEMP: remove to delete debug panel
 
 // Reproduces the original two-level root: the centered 440px mobile column
 // (from the old page.tsx <main>) wrapping the "GutCall app" root div, which
@@ -38,7 +37,6 @@ export function AppFrame({ children }: { children: ReactNode }) {
       >
         {children}
         <Overlays />
-        <DebugPanel /> {/* TEMP: remove to delete debug panel */}
       </div>
     </main>
   );

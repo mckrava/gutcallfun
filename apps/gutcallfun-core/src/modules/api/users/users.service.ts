@@ -1,4 +1,9 @@
-import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomInt } from 'node:crypto';
 import { Repository } from 'typeorm';
@@ -6,13 +11,19 @@ import { UserEntity } from '../../../models/account/user.entity';
 import { UserScoreProfileEntity } from '../../../models/account/user-score-profile.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { ListUsersQueryDto } from './dto/list-users-query.dto';
-import { PaginatedUsersResponseDto, UserResponseDto } from './dto/user-response.dto';
+import {
+  PaginatedUsersResponseDto,
+  UserResponseDto,
+} from './dto/user-response.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserScoreProfileResponseDto } from './dto/user-score-profile-response.dto';
 
 // Crockford base32: no I, L, O, U — unambiguous when read aloud or typed.
 const CROCKFORD_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 const SHARE_CODE_ATTEMPTS = 5;
+
+// Avatar emoji auto-assigned at registration when the client doesn't supply one.
+const AVATAR_EMOJIS = ['🦊', '🐸', '🐙', '🐼', '🚀', '🐢', '🐵', '🐺', '🐝', '🐳', '🦁', '🐧', '🦉', '🐰', '🐨', '🐯'];
 
 /**
  * Narrows a thrown TypeORM error to the underlying pg error fields. TypeORM
@@ -36,7 +47,9 @@ function pgErrorOf(err: unknown): { code?: string; constraint?: string } {
 
 const isUniqueViolation = (err: unknown, constraint?: string): boolean => {
   const { code, constraint: actual } = pgErrorOf(err);
-  return code === '23505' && (constraint === undefined || actual === constraint);
+  return (
+    code === '23505' && (constraint === undefined || actual === constraint)
+  );
 };
 
 /** timestamptz columns arrive as Date from pg; the wire contract is an ISO string. */
@@ -61,7 +74,9 @@ export class UsersService {
     const qb = this.usersRepo.createQueryBuilder('u');
 
     if (query.wallet_address) {
-      qb.andWhere('u.walletAddress = :wallet', { wallet: query.wallet_address });
+      qb.andWhere('u.walletAddress = :wallet', {
+        wallet: query.wallet_address,
+      });
     }
     if (query.handle) {
       qb.andWhere('LOWER(u.handle) LIKE :handle', {
@@ -78,7 +93,10 @@ export class UsersService {
       );
     }
 
-    qb.orderBy('u.createdAt', 'ASC').addOrderBy('u.id', 'ASC').skip(offset).take(limit);
+    qb.orderBy('u.createdAt', 'ASC')
+      .addOrderBy('u.id', 'ASC')
+      .skip(offset)
+      .take(limit);
 
     const [rows, total] = await qb.getManyAndCount();
 
@@ -92,6 +110,16 @@ export class UsersService {
 
   async findOne(userId: string): Promise<UserResponseDto> {
     return this.toResponseDto(await this.findUserOrThrow(userId));
+  }
+
+  /**
+   * Wallet lookup for the auth module (AUTH-03: wallet_address is read here, not
+   * by product endpoints). Returns null rather than throwing so sign-in can
+   * branch into first-time registration.
+   */
+  async findByWallet(walletAddress: string): Promise<UserResponseDto | null> {
+    const user = await this.usersRepo.findOne({ where: { walletAddress } });
+    return user ? this.toResponseDto(user) : null;
   }
 
   /**
@@ -121,6 +149,7 @@ export class UsersService {
         shareCode: this.generateShareCode(),
         handle: dto.handle,
         image: dto.image ?? null,
+        emoji: dto.emoji ?? AVATAR_EMOJIS[randomInt(AVATAR_EMOJIS.length)],
         scoreProfile: null,
       });
 
@@ -135,7 +164,9 @@ export class UsersService {
           continue; // regenerate and retry
         }
         if (isUniqueViolation(err, 'uq_user_handle')) {
-          throw new ConflictException(`Handle "${dto.handle}" is already taken`);
+          throw new ConflictException(
+            `Handle "${dto.handle}" is already taken`,
+          );
         }
         if (isUniqueViolation(err, 'uq_user_wallet')) {
           // Lost a race with a concurrent create for the same wallet.
@@ -158,6 +189,7 @@ export class UsersService {
 
     if (dto.handle !== undefined) user.handle = dto.handle;
     if (dto.image !== undefined) user.image = dto.image ?? null;
+    if (dto.emoji !== undefined) user.emoji = dto.emoji ?? null;
     user.updatedAt = new Date();
 
     try {
@@ -219,6 +251,7 @@ export class UsersService {
       share_code: user.shareCode,
       handle: user.handle,
       image: user.image ?? null,
+      emoji: user.emoji ?? null,
       score_profile: user.scoreProfile ?? null,
       created_at: toIso(user.createdAt) as string,
       updated_at: toIso(user.updatedAt),

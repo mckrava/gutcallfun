@@ -7,6 +7,7 @@ import {
   IsUrl,
   Max,
   Min,
+  MinLength,
   validateSync,
 } from 'class-validator';
 
@@ -59,6 +60,40 @@ export class EnvironmentVariables {
   @IsInt()
   @Min(1)
   LIVE_QUESTION_FALLBACK_TIMER_MS?: number;
+
+  // ---- Phase 3: Wallet Auth (AUTH-01/02/03) ----
+
+  // Secret used to sign stateless access JWTs. Refresh tokens are opaque
+  // in-memory values (not JWTs), so no refresh secret is needed. Min length is
+  // an ASVS-L1 guard against a trivially brute-forceable HMAC key.
+  @IsString()
+  @MinLength(32)
+  JWT_ACCESS_SECRET: string;
+
+  // Access-token lifetime in seconds (short-lived; refresh extends the session).
+  @IsOptional()
+  @IsInt()
+  @Min(60)
+  JWT_ACCESS_TTL: number = 900; // 15 minutes
+
+  // Refresh-token lifetime in seconds (governs the in-memory refresh store TTL).
+  @IsOptional()
+  @IsInt()
+  @Min(300)
+  JWT_REFRESH_TTL: number = 2_592_000; // 30 days
+
+  // Domain bound into the SIWS sign-in message (anti-phishing). Optional —
+  // falls back to the WEB_APP_ORIGIN host when unset (resolved in AuthService).
+  @IsOptional()
+  @IsString()
+  AUTH_DOMAIN?: string;
+
+  // Dev match simulator (POST /dev/live/*). FAIL-CLOSED: DevModule is mounted
+  // ONLY when this is exactly "true" (see app.module.ts), so the routes don't
+  // exist at all otherwise — including production. Never set in a real deploy.
+  @IsOptional()
+  @IsString()
+  ENABLE_DEV_SIM?: string;
 }
 
 export function validate(

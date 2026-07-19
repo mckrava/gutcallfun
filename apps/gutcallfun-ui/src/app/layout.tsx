@@ -2,6 +2,11 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AppProvider } from "@/state/AppProvider";
 import { AppFrame } from "@/components/shell/AppFrame";
+import { SessionRestore } from "@/services/auth/SessionRestore";
+import { RealDataBridge } from "@/components/shell/RealDataBridge";
+import { LiveMatchBridge } from "@/components/shell/LiveMatchBridge";
+import { MatchSquadBridge } from "@/components/shell/MatchSquadBridge";
+import { Providers } from "./providers";
 
 export const metadata: Metadata = {
   title: "GutCall — live football, predict for fun",
@@ -23,9 +28,15 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <AppProvider>
-          <AppFrame>{children}</AppFrame>
-        </AppProvider>
+        <Providers>
+          <AppProvider>
+            <SessionRestore />
+            <RealDataBridge />
+            <LiveMatchBridge />
+            <MatchSquadBridge />
+            <AppFrame>{children}</AppFrame>
+          </AppProvider>
+        </Providers>
       </body>
     </html>
   );

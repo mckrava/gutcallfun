@@ -2,7 +2,7 @@ import { EKG } from "@/state/constants";
 import type { HistEntry } from "@/state/types";
 
 // Ported verbatim from GutCallApp.buildEkg().
-export function MatchEkg({ hist }: { hist: HistEntry[] }) {
+export function MatchEkg({ hist, t1 = "BRA", t2 = "ARG" }: { hist: HistEntry[]; t1?: string; t2?: string }) {
   const W = 316,
     H = 138,
     cy = H / 2,
@@ -15,10 +15,10 @@ export function MatchEkg({ hist }: { hist: HistEntry[] }) {
     <svg viewBox={"0 0 " + W + " " + H} width="100%" style={{ display: "block" }}>
       <line x1={4} y1={cy} x2={W - 4} y2={cy} stroke="rgba(255,255,255,.14)" strokeDasharray="3 4" />
       <text x={6} y={12} fill="#FFD84D" fontSize={8} fontWeight={700} letterSpacing={1} fontFamily="Barlow">
-        BRA PRESSURE
+        {t1} PRESSURE
       </text>
       <text x={6} y={H - 5} fill="#7FB8E8" fontSize={8} fontWeight={700} letterSpacing={1} fontFamily="Barlow">
-        ARG PRESSURE
+        {t2} PRESSURE
       </text>
       <text x={x(45) - 6} y={cy - 7} fill="rgba(255,255,255,.4)" fontSize={8} fontFamily="Barlow">
         HT

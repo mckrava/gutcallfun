@@ -2,6 +2,7 @@ import { Logger, OnModuleInit } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
+  OnGatewayConnection,
   OnGatewayDisconnect,
   SubscribeMessage,
   WebSocketGateway,
@@ -9,6 +10,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { SubscribeDto } from './dto/subscribe.dto';
+import { AuthService } from '../auth/auth.service';
 import { LiveBroadcastEmitter } from '../live/events/live-broadcast.emitter';
 import { LiveStateService } from '../live/live-state.service';
 
@@ -38,7 +40,9 @@ import { LiveStateService } from '../live/live-state.service';
 @WebSocketGateway({
   cors: { origin: '*', credentials: false },
 })
-export class RealtimeGateway implements OnGatewayDisconnect, OnModuleInit {
+export class RealtimeGateway
+  implements OnGatewayConnection, OnGatewayDisconnect, OnModuleInit
+{
   @WebSocketServer() server: Server;
 
   private readonly logger = new Logger(RealtimeGateway.name);
@@ -58,7 +62,30 @@ export class RealtimeGateway implements OnGatewayDisconnect, OnModuleInit {
   constructor(
     private readonly broadcast: LiveBroadcastEmitter,
     private readonly liveState: LiveStateService,
+    private readonly auth: AuthService,
   ) {}
+
+  /**
+   * Handshake auth (closes ws-handshake-origin-not-enforced). The browser never
+   * holds the JWT — the Next.js server mints a single-use ticket via
+   * POST /auth/ws-ticket and the browser presents it as socket.io
+   * `auth: { ticket }`. We exchange it for a user id exactly once here and pin
+   * it to the socket; a missing/invalid/expired ticket is disconnected.
+   */
+  handleConnection(client: Socket): void {
+    const auth = client.handshake.auth as { ticket?: unknown } | undefined;
+    const ticket = typeof auth?.ticket === 'string' ? auth.ticket : null;
+    const userId = ticket ? this.auth.consumeWsTicket(ticket) : null;
+    if (!userId) {
+      this.logger.warn(
+        `Rejected socket ${client.id}: missing, invalid, or expired ticket`,
+      );
+      client.disconnect();
+      return;
+    }
+    // socket.io types `data` as `any`; pin the authenticated principal on it.
+    (client.data as { user?: { userId: string } }).user = { userId };
+  }
 
   /**
    * Forward every live-engine emission to its game's room.
@@ -85,6 +112,17 @@ export class RealtimeGateway implements OnGatewayDisconnect, OnModuleInit {
         );
       }
     });
+  }
+
+  /**
+   * Dev-only WS simulator seam. Emits an arbitrary event to a game's room,
+   * exactly like the live engine's own broadcasts — including `snapshot`,
+   * which the frozen LiveBroadcast union deliberately omits (it is normally
+   * sent only on subscribe). DevController scripts a live match through this;
+   * nothing on the production path calls it.
+   */
+  emitToGame(gameId: number, event: string, payload: unknown): void {
+    this.server?.to(`game:${gameId}`).emit(event, payload);
   }
 
   @SubscribeMessage('subscribe')
