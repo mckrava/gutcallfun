@@ -2,6 +2,7 @@
 
 import { useApp } from "@/state/context";
 import { Fragment } from "react";
+import { ReactionBar } from "./ReactionBar";
 
 export function LiveScreen() {
   const vm = useApp();
@@ -82,13 +83,7 @@ export function LiveScreen() {
               ))}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 12, paddingTop: 11, borderTop: "1px solid rgba(255,255,255,.07)" }}>
-              <div style={{ flex: 1, display: "flex", gap: 6, justifyContent: "space-between" }}>
-                {vm.reactOpts.map((e, i) => (
-                  <Fragment key={i}>
-                    <button onClick={e.send} style={{ flex: 1, height: 38, borderRadius: 11, background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.1)", cursor: "pointer", fontSize: 19, display: "flex", alignItems: "center", justifyContent: "center" }}>{e.em}</button>
-                  </Fragment>
-                ))}
-              </div>
+              <ReactionBar />
             </div>
           </>
         )}

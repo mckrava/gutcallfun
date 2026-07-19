@@ -6,6 +6,8 @@ import { SquadModal } from "./SquadModal";
 import { GoalFlash } from "./GoalFlash";
 import { GoalSlam } from "./GoalSlam";
 import { WinToast } from "./WinToast";
+import { LossToast } from "./LossToast";
+import { ReactionBubbles } from "./ReactionBubbles";
 import { Toast } from "./Toast";
 
 // The match-details route. Its screen sets the engine `screen` to "live", but we
@@ -34,6 +36,8 @@ export function Overlays() {
           <GoalFlash />
           <GoalSlam />
           <WinToast />
+          <LossToast />
+          <ReactionBubbles />
         </>
       )}
       {/* Screen-agnostic: the squad picker is a user-opened modal and the toast

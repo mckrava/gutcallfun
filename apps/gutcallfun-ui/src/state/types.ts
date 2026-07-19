@@ -85,6 +85,12 @@ export interface AppState {
   toast: string | null;
   settled: boolean;
   authStep: AuthStep;
+  // False until SessionRestore's /api/auth/me resolves. While false we do NOT
+  // force /signin (routeForState stays on the current URL), so an authenticated
+  // reload never flashes the login screen — and, crucially, never fires the
+  // premature /signin navigation that raced the session check and left the user
+  // stuck on login "every other refresh".
+  sessionChecked: boolean;
   onbUser: string;
   winDrag?: number;
   // The specific game a /recap/[game_id] deep link (or a "Your results" card
@@ -303,6 +309,15 @@ export interface LiveWinToastVM {
   headline: string; // punchy copy scaled to the reward ("NICE CALL!" → "JACKPOT!")
   outcomeLabel: string; // the outcome they correctly called ("GOAL", "SHOT"…)
   emoji: string; // celebratory glyph, also scaled to the reward
+}
+
+// Wrong-answer notice — deliberately restrained (small, muted, no points): shown
+// only when the caller made a pick and it lost. Says what actually happened so
+// the miss is informative, not just a scolding.
+export interface LiveLossToastVM {
+  headline: string; // calm copy ("NOT THIS TIME")
+  outcomeLabel: string; // what it actually resolved to ("IT WAS A SHOT")
+  emoji: string;
 }
 
 // The "LIVE NOW" hero on the Matches screen, driven by a real live game.
@@ -530,6 +545,13 @@ export interface ViewModel {
   winToastOutcome: string;
   winToastEmoji: string;
   dismissWinToast: Handler;
+
+  // wrong-answer notice (compact, muted, auto-dismissing)
+  lossToastOn: boolean;
+  lossToastHeadline: string;
+  lossToastOutcome: string;
+  lossToastEmoji: string;
+  dismissLossToast: Handler;
 
   // auth / onboarding
   connectWallet: Handler;

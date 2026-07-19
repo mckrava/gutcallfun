@@ -472,6 +472,27 @@ export interface SubscribePayload {
   game_id: number;
 }
 
+/** Client -> server `reaction`: an ephemeral squad emoji. `user_id` is stamped
+ *  by the server from the authenticated socket, so it is NOT sent here. */
+export interface OutgoingReaction {
+  game_id: number;
+  squad_id: number;
+  emoji: string;
+  handle: string;
+  avatar: string;
+}
+
+/** Server -> client `reaction`: relayed to the game room, rendered only by
+ *  clients whose picked squad matches `squad_id`. Never persisted. */
+export interface ReactionMessage {
+  game_id: number;
+  squad_id: number;
+  user_id: string;
+  handle: string;
+  avatar: string;
+  emoji: string;
+}
+
 // ---------------------------------------------------------------------------
 // Typed socket.io event maps
 // ---------------------------------------------------------------------------
@@ -482,9 +503,11 @@ export interface ServerToClientEvents {
   question: (payload: QuestionMessage) => void;
   resolution: (payload: ResolutionMessage) => void;
   void: (payload: VoidMessage) => void;
+  reaction: (payload: ReactionMessage) => void;
 }
 
 export interface ClientToServerEvents {
   subscribe: (payload: SubscribePayload) => void;
   unsubscribe: (payload: SubscribePayload) => void;
+  reaction: (payload: OutgoingReaction) => void;
 }

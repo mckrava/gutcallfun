@@ -1,6 +1,6 @@
 import type { Game, OutcomeKey, Question, ResolutionMessage } from "@/services/api/types";
 import type { LiveGameState } from "@/services/realtime/LiveProvider";
-import type { LiveGoalVM, LiveMatchVM, LiveWindowVM, LiveWinToastVM, StagePill } from "@/state/types";
+import type { LiveGoalVM, LiveLossToastVM, LiveMatchVM, LiveWindowVM, LiveWinToastVM, StagePill } from "@/state/types";
 import { CountryFlag } from "@/components/common/CountryFlag";
 
 // Per-team style triples (accent / gradient-2 / dark-ink) — the mock's TEAMS.
@@ -161,7 +161,7 @@ export function deriveLiveGoal(game: Game, participant: 1 | 2, score1: number, s
   const isBr = participant === 1;
   const c = isBr ? "#FFD84D" : "#7FB8E8";
   const name = (isBr ? game.team1_name : game.team2_name) ?? "";
-  const code = (s: string | null) => (s ?? "").slice(0, 3).toUpperCase();
+  const teamName = (s: string | null) => (s ?? "TEAM").toUpperCase();
   return {
     flashOn: true,
     flashBg: isBr
@@ -177,7 +177,7 @@ export function deriveLiveGoal(game: Game, participant: 1 | 2, score1: number, s
       : "radial-gradient(ellipse at 50% 40%, rgba(127,184,232,.32), rgba(6,9,15,.97) 66%)",
     goalFlagEl: <CountryFlag name={isBr ? game.team1_name : game.team2_name} size={84} />,
     goalTeamName: name.toUpperCase() + " SCORE",
-    goalScore: `${code(game.team1_name)} ${score1} – ${score2} ${code(game.team2_name)}`,
+    goalScore: `${teamName(game.team1_name)} ${score1} – ${score2} ${teamName(game.team2_name)}`,
   };
 }
 
@@ -201,5 +201,24 @@ export function deriveWinToast(res: ResolutionMessage): LiveWinToastVM {
     headline,
     outcomeLabel: WIN_OUTCOME_LABEL[res.resolved_outcome_key] ?? "CALLED IT",
     emoji,
+  };
+}
+
+// What actually happened, per resolved outcome — the muted sub-label on the loss
+// notice ("IT WAS …"), so a miss teaches instead of just scolding.
+const LOSS_OUTCOME_LABEL: Record<OutcomeKey, string> = {
+  goal: "IT WAS A GOAL",
+  shot: "IT WAS A SHOT",
+  danger: "IT WAS DANGER",
+  fizzles: "IT FIZZLED OUT",
+};
+
+// A resolution the caller lost → the compact, restrained wrong-answer notice.
+// No points, calm copy — noticeable but not a full-screen event.
+export function deriveLossToast(res: ResolutionMessage): LiveLossToastVM {
+  return {
+    headline: "NOT THIS TIME",
+    outcomeLabel: LOSS_OUTCOME_LABEL[res.resolved_outcome_key] ?? "MISSED IT",
+    emoji: "😕",
   };
 }

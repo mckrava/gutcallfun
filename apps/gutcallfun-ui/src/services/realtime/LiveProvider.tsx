@@ -3,13 +3,21 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type {
   GameEventMessage,
+  OutgoingReaction,
   PossessionStage,
   Question,
+  ReactionMessage,
   ResolutionMessage,
   Snapshot,
   VoidMessage,
 } from "@/services/api/types";
 import { createSocket, type LiveSocket } from "./socket";
+
+/** An incoming reaction plus a client-assigned monotonic id, so the overlay can
+ *  key each floating bubble and show it exactly once. */
+export interface IncomingReaction extends ReactionMessage {
+  _id: number;
+}
 
 export type ConnectionStatus = "connecting" | "connected" | "disconnected";
 
@@ -38,6 +46,8 @@ export interface LiveGameState {
   lastVoid: VoidMessage | null;
   /** Every resolution seen for this game, in order (for post-match recap/EKG). */
   resolutions: ResolutionMessage[];
+  /** Recent squad reactions (ephemeral, bounded). Filtered by squad on render. */
+  reactions: IncomingReaction[];
 }
 
 interface LiveContextValue {
@@ -45,13 +55,22 @@ interface LiveContextValue {
   games: Record<number, LiveGameState>;
   subscribe: (gameId: number) => void;
   unsubscribe: (gameId: number) => void;
+  sendReaction: (payload: OutgoingReaction) => void;
 }
 
 const LiveContext = createContext<LiveContextValue | null>(null);
 
 function emptyGame(gameId: number): LiveGameState {
-  return { gameId, snapshot: null, activeQuestion: null, possessionStage: null, lastResolution: null, lastGameEvent: null, lastVoid: null, resolutions: [] };
+  return { gameId, snapshot: null, activeQuestion: null, possessionStage: null, lastResolution: null, lastGameEvent: null, lastVoid: null, resolutions: [], reactions: [] };
 }
+
+// Client-side monotonic id for keying reaction bubbles. Module-level (not per
+// render) so ids never collide across the app's single socket.
+let reactionSeq = 0;
+
+// Keep only the most recent reactions in memory — they are transient bubbles, so
+// an unbounded log would only leak memory over a long match.
+const MAX_REACTIONS = 40;
 
 export function LiveProvider({ children }: { children: ReactNode }) {
   const socketRef = useRef<LiveSocket | null>(null);
@@ -123,6 +142,12 @@ export function LiveProvider({ children }: { children: ReactNode }) {
     socket.on("void", (v: VoidMessage) => {
       patchByQuestion(v.game_question_id, (prev) => ({ ...prev, activeQuestion: null, lastVoid: v }));
     });
+    socket.on("reaction", (r: ReactionMessage) => {
+      // Ephemeral: append with a fresh id and keep only the last MAX_REACTIONS.
+      // Squad filtering happens on render (the consumer knows the viewer's squad).
+      const withId: IncomingReaction = { ...r, _id: ++reactionSeq };
+      patch(r.game_id, (prev) => ({ ...prev, reactions: [...prev.reactions, withId].slice(-MAX_REACTIONS) }));
+    });
 
     socket.connect();
     return () => {
@@ -148,7 +173,16 @@ export function LiveProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const value = useMemo<LiveContextValue>(() => ({ status, games, subscribe, unsubscribe }), [status, games, subscribe, unsubscribe]);
+  const sendReaction = useCallback((payload: OutgoingReaction) => {
+    socketRef.current?.emit("reaction", payload);
+    // Optimistic local echo: the server relay deliberately excludes the sender,
+    // so mirror the reaction into our own list to float the sender's own bubble
+    // too. `user_id: "self"` marks it as the local echo (never a real user id).
+    const own: IncomingReaction = { ...payload, user_id: "self", _id: ++reactionSeq };
+    patch(payload.game_id, (prev) => ({ ...prev, reactions: [...prev.reactions, own].slice(-MAX_REACTIONS) }));
+  }, [patch]);
+
+  const value = useMemo<LiveContextValue>(() => ({ status, games, subscribe, unsubscribe, sendReaction }), [status, games, subscribe, unsubscribe, sendReaction]);
   return <LiveContext.Provider value={value}>{children}</LiveContext.Provider>;
 }
 
@@ -171,4 +205,9 @@ export function useLiveGame(gameId: number | null): LiveGameState | undefined {
     return () => unsubscribe(gameId);
   }, [gameId, subscribe, unsubscribe]);
   return gameId != null ? games[gameId] : undefined;
+}
+
+/** Emit an ephemeral squad reaction over the live socket. */
+export function useSendReaction(): (payload: OutgoingReaction) => void {
+  return useLiveContext().sendReaction;
 }

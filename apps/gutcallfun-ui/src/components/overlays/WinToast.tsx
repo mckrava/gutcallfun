@@ -3,11 +3,12 @@
 import { useApp } from "@/state/context";
 
 // Compact "you called it" win — shown when the caller's own answer resolves
-// correct. Deliberately NOT full-screen (that is GoalSlam): a floating card
-// anchored in the upper third, with no page-wide dim, so the live screen stays
-// readable underneath. Auto-dismisses (LiveMatchBridge timer); tap to close
-// early. Styled like a slot-machine payout — gold burst, big +points, a shine
-// sweep and a pulsing ring.
+// correct. Deliberately NOT full-screen (that is GoalSlam): a floating card with
+// no page-wide dim, so the live screen stays readable underneath. Anchored low —
+// its bottom edge sits just above the "YOUR POINTS" footer card (same anchor as
+// LossToast) and the card grows upward from there. Auto-dismisses (LiveMatchBridge
+// timer); tap to close early. Styled like a slot-machine payout — gold burst, big
+// +points, a shine sweep and a pulsing ring.
 export function WinToast() {
   const vm = useApp();
   if (!vm.winToastOn) return null;
@@ -16,7 +17,7 @@ export function WinToast() {
       onClick={vm.dismissWinToast}
       style={{
         position: "absolute",
-        top: "18%",
+        bottom: 138,
         left: 0,
         right: 0,
         zIndex: 43,

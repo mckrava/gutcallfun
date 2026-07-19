@@ -10,6 +10,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { SubscribeDto } from './dto/subscribe.dto';
+import { ReactionMessageDto } from './dto/reaction-message.dto';
 import { AuthService } from '../auth/auth.service';
 import { LiveBroadcastEmitter } from '../live/events/live-broadcast.emitter';
 import { LiveStateService } from '../live/live-state.service';
@@ -146,6 +147,31 @@ export class RealtimeGateway
         err as Error,
       );
     }
+  }
+
+  /**
+   * Ephemeral squad reaction relay. RELAY-ONLY — nothing is persisted. The
+   * sender's `user_id` is taken from the authenticated socket, never the
+   * payload; the reaction is fanned out to everyone ELSE in the game room
+   * (`client.to` excludes the sender, who shows it optimistically). Receivers
+   * render it only when `squad_id` matches their own picked squad, so a reaction
+   * is scoped to the sender's squad without any DB read or per-squad rooms.
+   */
+  @SubscribeMessage('reaction')
+  handleReaction(
+    @MessageBody() body: ReactionMessageDto,
+    @ConnectedSocket() client: Socket,
+  ): void {
+    const user = (client.data as { user?: { userId: string } }).user;
+    if (!user) return; // unauthenticated sockets are already disconnected
+    client.to(`game:${body.game_id}`).emit('reaction', {
+      game_id: body.game_id,
+      squad_id: body.squad_id,
+      user_id: user.userId,
+      handle: body.handle,
+      avatar: body.avatar,
+      emoji: body.emoji,
+    });
   }
 
   @SubscribeMessage('unsubscribe')

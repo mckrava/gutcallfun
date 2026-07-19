@@ -3,8 +3,8 @@ import {
   API_ORIGIN,
   REG_COOKIE,
   SESSION_COOKIE,
-  cookieOptions,
   createSession,
+  sessionCookieOptions,
   takePendingReg,
 } from "@/server/session";
 
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     userId: data.user.id,
   });
   const res = NextResponse.json({ user: data.user });
-  res.cookies.set(SESSION_COOKIE, sid, cookieOptions);
+  res.cookies.set(SESSION_COOKIE, sid, sessionCookieOptions);
   res.cookies.delete(REG_COOKIE);
   return res;
 }

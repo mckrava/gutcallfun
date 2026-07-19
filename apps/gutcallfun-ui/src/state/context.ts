@@ -19,6 +19,7 @@ export interface AppActions {
   backSquadList: () => void;
   connectWallet: () => void;
   saveUsername: () => void;
+  sessionCheckFailed: () => void;
 }
 
 export const AppContext = createContext<ViewModel | null>(null);
