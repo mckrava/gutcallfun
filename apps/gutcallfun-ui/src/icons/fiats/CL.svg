@@ -1,0 +1,18 @@
+<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g clip-path="url(#clip0_1_62968)">
+<mask id="mask0_1_62968" style="mask-type:luminance" maskUnits="userSpaceOnUse" x="0" y="0" width="40" height="40">
+<path d="M0 0H39.9751V39.9751H0V0Z" fill="white"/>
+</mask>
+<g mask="url(#mask0_1_62968)">
+<path fill-rule="evenodd" clip-rule="evenodd" d="M19.9846 0H59.9597V19.9847H19.9846V0Z" fill="white"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M0 0H19.9847V19.9847H0V0Z" fill="#0039A6"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M13.1031 14.9646L10.0008 12.6463L6.92665 14.9872L8.0717 11.1797L4.99756 8.8276L8.79934 8.79376L9.98387 4.99762L11.1853 8.78812H14.9927L11.9242 11.1685L13.1031 14.9646Z" fill="white"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M0 19.9847H59.9598V39.9751H0V19.9847Z" fill="#D52B1E"/>
+</g>
+</g>
+<defs>
+<clipPath id="clip0_1_62968">
+<path d="M0 4C0 1.79086 1.79086 0 4 0H36C38.2091 0 40 1.79086 40 4V36C40 38.2091 38.2091 40 36 40H4C1.79086 40 0 38.2091 0 36V4Z" fill="white"/>
+</clipPath>
+</defs>
+</svg>
